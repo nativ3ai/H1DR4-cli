@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Box, Text, useInput, useApp } from "ink";
-import { GrokAgent } from "../../agent/grok-agent";
+import { H1dr4Agent } from "../../agent/h1dr4-agent";
 import { getSettingsManager } from "../../utils/settings-manager";
 
 interface ApiKeyInputProps {
-  onApiKeySet: (agent: GrokAgent) => void;
+  onApiKeySet: (agent: H1dr4Agent) => void;
 }
 
 export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
@@ -49,8 +49,8 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     setIsSubmitting(true);
     try {
       const apiKey = input.trim();
-      const agent = new GrokAgent(apiKey);
-      
+      const agent = new H1dr4Agent(apiKey);
+
       // Set environment variable for current process
       process.env.GROK_API_KEY = apiKey;
       
@@ -58,7 +58,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
       try {
         const manager = getSettingsManager();
         manager.updateUserSetting('apiKey', apiKey);
-        console.log(`\n✅ API key saved to ~/.grok/user-settings.json`);
+        console.log(`\n✅ API key saved to ~/.h1dr4/user-settings.json`);
       } catch (error) {
         console.log('\n⚠️ Could not save API key to settings file');
         console.log('API key set for current session only');
@@ -96,7 +96,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray" dimColor>• Press Enter to submit</Text>
         <Text color="gray" dimColor>• Press Ctrl+C to exit</Text>
-        <Text color="gray" dimColor>Note: API key will be saved to ~/.grok/user-settings.json</Text>
+        <Text color="gray" dimColor>Note: API key will be saved to ~/.h1dr4/user-settings.json</Text>
       </Box>
 
       {isSubmitting ? (

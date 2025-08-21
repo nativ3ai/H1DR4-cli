@@ -1,10 +1,10 @@
 {
-  "name": "@vibe-kit/grok-cli",
+  "name": "@vibe-kit/h1dr4-cli",
   "version": "0.0.23",
-  "description": "An open-source AI agent that brings the power of Grok directly into your terminal.",
+  "description": "An open-source AI agent that brings the power of H1DR4 directly into your terminal.",
   "main": "dist/index.js",
   "bin": {
-    "grok": "dist/index.js"
+    "h1dr4": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -17,7 +17,7 @@
     "cli",
     "agent",
     "text-editor",
-    "grok",
+    "h1dr4",
     "ai"
   ],
   "author": "Your Name",
