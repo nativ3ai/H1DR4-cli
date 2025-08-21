@@ -1,9 +1,9 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
-export type GrokMessage = ChatCompletionMessageParam;
+export type H1dr4Message = ChatCompletionMessageParam;
 
-export interface GrokTool {
+export interface H1dr4Tool {
   type: "function";
   function: {
     name: string;
@@ -16,7 +16,7 @@ export interface GrokTool {
   };
 }
 
-export interface GrokToolCall {
+export interface H1dr4ToolCall {
   id: string;
   type: "function";
   function: {
@@ -34,18 +34,18 @@ export interface SearchOptions {
   search_parameters?: SearchParameters;
 }
 
-export interface GrokResponse {
+export interface H1dr4Response {
   choices: Array<{
     message: {
       role: string;
       content: string | null;
-      tool_calls?: GrokToolCall[];
+      tool_calls?: H1dr4ToolCall[];
     };
     finish_reason: string;
   }>;
 }
 
-export class GrokClient {
+export class H1dr4Client {
   private client: OpenAI;
   private currentModel: string = "grok-3-latest";
 
@@ -69,11 +69,11 @@ export class GrokClient {
   }
 
   async chat(
-    messages: GrokMessage[],
-    tools?: GrokTool[],
+    messages: H1dr4Message[],
+    tools?: H1dr4Tool[],
     model?: string,
     searchOptions?: SearchOptions
-  ): Promise<GrokResponse> {
+  ): Promise<H1dr4Response> {
     try {
       const requestPayload: any = {
         model: model || this.currentModel,
@@ -93,15 +93,15 @@ export class GrokClient {
         requestPayload
       );
 
-      return response as GrokResponse;
+      return response as H1dr4Response;
     } catch (error: any) {
-      throw new Error(`Grok API error: ${error.message}`);
+      throw new Error(`H1dr4 API error: ${error.message}`);
     }
   }
 
   async *chatStream(
-    messages: GrokMessage[],
-    tools?: GrokTool[],
+    messages: H1dr4Message[],
+    tools?: H1dr4Tool[],
     model?: string,
     searchOptions?: SearchOptions
   ): AsyncGenerator<any, void, unknown> {
@@ -129,15 +129,28 @@ export class GrokClient {
         yield chunk;
       }
     } catch (error: any) {
-      throw new Error(`Grok API error: ${error.message}`);
+      throw new Error(`H1dr4 API error: ${error.message}`);
+    }
+  }
+
+  async reason(prompt: string, model?: string): Promise<string> {
+    try {
+      const response: any = await (this.client as any).responses.create({
+        model: model || this.currentModel,
+        input: prompt,
+        reasoning: { effort: "medium" },
+      });
+      return response.output_text;
+    } catch (error: any) {
+      throw new Error(`H1dr4 reasoning error: ${error.message}`);
     }
   }
 
   async search(
     query: string,
     searchParameters?: SearchParameters
-  ): Promise<GrokResponse> {
-    const searchMessage: GrokMessage = {
+  ): Promise<H1dr4Response> {
+    const searchMessage: H1dr4Message = {
       role: "user",
       content: query,
     };

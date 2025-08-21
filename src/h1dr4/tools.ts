@@ -1,8 +1,8 @@
-import { GrokTool } from "./client";
+import { H1dr4Tool } from "./client";
 import { MCPManager, MCPTool } from "../mcp/client";
 import { loadMCPConfig } from "../mcp/config";
 
-const BASE_GROK_TOOLS: GrokTool[] = [
+const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
   {
     type: "function",
     function: {
@@ -241,10 +241,44 @@ const BASE_GROK_TOOLS: GrokTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "osint_search",
+      description: "Perform OSINT targeted search for defined entities",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Search query for the OSINT endpoint",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "reason",
+      description: "Use a dedicated reasoning model for complex questions",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "Question or instruction requiring deep reasoning",
+          },
+        },
+        required: ["prompt"],
+      },
+    },
+  },
 ];
 
 // Morph Fast Apply tool (conditional)
-const MORPH_EDIT_TOOL: GrokTool = {
+const MORPH_EDIT_TOOL: H1dr4Tool = {
   type: "function",
   function: {
     name: "edit_file",
@@ -271,8 +305,8 @@ const MORPH_EDIT_TOOL: GrokTool = {
 };
 
 // Function to build tools array conditionally
-function buildGrokTools(): GrokTool[] {
-  const tools = [...BASE_GROK_TOOLS];
+function buildH1dr4Tools(): H1dr4Tool[] {
+  const tools = [...BASE_H1DR4_TOOLS];
   
   // Add Morph Fast Apply tool if API key is available
   if (process.env.MORPH_API_KEY) {
@@ -283,7 +317,7 @@ function buildGrokTools(): GrokTool[] {
 }
 
 // Export dynamic tools array
-export const GROK_TOOLS: GrokTool[] = buildGrokTools();
+export const H1DR4_TOOLS: H1dr4Tool[] = buildH1dr4Tools();
 
 // Global MCP manager instance
 let mcpManager: MCPManager | null = null;
@@ -339,7 +373,7 @@ export async function initializeMCPServers(): Promise<void> {
   }
 }
 
-export function convertMCPToolToGrokTool(mcpTool: MCPTool): GrokTool {
+export function convertMCPToolToH1dr4Tool(mcpTool: MCPTool): H1dr4Tool {
   return {
     type: "function",
     function: {
@@ -354,22 +388,22 @@ export function convertMCPToolToGrokTool(mcpTool: MCPTool): GrokTool {
   };
 }
 
-export function addMCPToolsToGrokTools(baseTools: GrokTool[]): GrokTool[] {
+export function addMCPToolsToH1dr4Tools(baseTools: H1dr4Tool[]): H1dr4Tool[] {
   if (!mcpManager) {
     return baseTools;
   }
   
   const mcpTools = mcpManager.getTools();
-  const grokMCPTools = mcpTools.map(convertMCPToolToGrokTool);
+  const h1dr4MCPTools = mcpTools.map(convertMCPToolToH1dr4Tool);
   
-  return [...baseTools, ...grokMCPTools];
+  return [...baseTools, ...h1dr4MCPTools];
 }
 
-export async function getAllGrokTools(): Promise<GrokTool[]> {
+export async function getAllH1dr4Tools(): Promise<H1dr4Tool[]> {
   const manager = getMCPManager();
   // Try to initialize servers if not already done, but don't block
   manager.ensureServersInitialized().catch(() => {
     // Ignore initialization errors to avoid blocking
   });
-  return addMCPToolsToGrokTools(GROK_TOOLS);
+  return addMCPToolsToH1dr4Tools(H1DR4_TOOLS);
 }

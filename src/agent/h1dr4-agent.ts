@@ -1,11 +1,11 @@
-import { GrokClient, GrokMessage, GrokToolCall } from "../grok/client";
+import { H1dr4Client, H1dr4Message, H1dr4ToolCall } from "../h1dr4/client";
 import {
-  GROK_TOOLS,
-  addMCPToolsToGrokTools,
-  getAllGrokTools,
+  H1DR4_TOOLS,
+  addMCPToolsToH1dr4Tools,
+  getAllH1dr4Tools,
   getMCPManager,
   initializeMCPServers,
-} from "../grok/tools";
+} from "../h1dr4/tools";
 import { loadMCPConfig } from "../mcp/config";
 import {
   TextEditorTool,
@@ -14,6 +14,7 @@ import {
   TodoTool,
   ConfirmationTool,
   SearchTool,
+  OSINTTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -25,8 +26,8 @@ export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
   content: string;
   timestamp: Date;
-  toolCalls?: GrokToolCall[];
-  toolCall?: GrokToolCall;
+  toolCalls?: H1dr4ToolCall[];
+  toolCall?: H1dr4ToolCall;
   toolResult?: { success: boolean; output?: string; error?: string };
   isStreaming?: boolean;
 }
@@ -34,22 +35,23 @@ export interface ChatEntry {
 export interface StreamingChunk {
   type: "content" | "tool_calls" | "tool_result" | "done" | "token_count";
   content?: string;
-  toolCalls?: GrokToolCall[];
-  toolCall?: GrokToolCall;
+  toolCalls?: H1dr4ToolCall[];
+  toolCall?: H1dr4ToolCall;
   toolResult?: ToolResult;
   tokenCount?: number;
 }
 
-export class GrokAgent extends EventEmitter {
-  private grokClient: GrokClient;
+export class H1dr4Agent extends EventEmitter {
+  private h1dr4Client: H1dr4Client;
   private textEditor: TextEditorTool;
   private morphEditor: MorphEditorTool | null;
   private bash: BashTool;
   private todoTool: TodoTool;
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
+  private osint: OSINTTool;
   private chatHistory: ChatEntry[] = [];
-  private messages: GrokMessage[] = [];
+  private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
   private abortController: AbortController | null = null;
   private mcpInitialized: boolean = false;
@@ -66,13 +68,14 @@ export class GrokAgent extends EventEmitter {
     const savedModel = manager.getCurrentModel();
     const modelToUse = model || savedModel || "grok-4-latest";
     this.maxToolRounds = maxToolRounds || 400;
-    this.grokClient = new GrokClient(apiKey, modelToUse, baseURL);
+    this.h1dr4Client = new H1dr4Client(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
     this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
+    this.osint = new OSINTTool();
     this.tokenCounter = createTokenCounter(modelToUse);
 
     // Initialize MCP servers if configured
@@ -87,7 +90,7 @@ export class GrokAgent extends EventEmitter {
     // Initialize with system message
     this.messages.push({
       role: "system",
-      content: `You are Grok CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
+      content: `You are H1dr4 CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
 
 You have access to these tools:
 - view_file: View file contents or directory listings
@@ -167,9 +170,9 @@ Current working directory: ${process.cwd()}`,
     });
   }
 
-  private isGrokModel(): boolean {
-    const currentModel = this.grokClient.getCurrentModel();
-    return currentModel.toLowerCase().includes("grok");
+  private isH1dr4Model(): boolean {
+    const currentModel = this.h1dr4Client.getCurrentModel();
+    return currentModel.toLowerCase().includes("h1dr4");
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
@@ -187,12 +190,12 @@ Current working directory: ${process.cwd()}`,
     let toolRounds = 0;
 
     try {
-      const tools = await getAllGrokTools();
-      let currentResponse = await this.grokClient.chat(
+      const tools = await getAllH1dr4Tools();
+      let currentResponse = await this.h1dr4Client.chat(
         this.messages,
         tools,
         undefined,
-        this.isGrokModel() ? { search_parameters: { mode: "auto" } } : undefined
+        this.isH1dr4Model() ? { search_parameters: { mode: "auto" } } : undefined
       );
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -200,7 +203,7 @@ Current working directory: ${process.cwd()}`,
         const assistantMessage = currentResponse.choices[0]?.message;
 
         if (!assistantMessage) {
-          throw new Error("No response from Grok");
+          throw new Error("No response from H1dr4");
         }
 
         // Handle tool calls
@@ -282,11 +285,11 @@ Current working directory: ${process.cwd()}`,
           }
 
           // Get next response - this might contain more tool calls
-          currentResponse = await this.grokClient.chat(
+          currentResponse = await this.h1dr4Client.chat(
             this.messages,
             tools,
             undefined,
-            this.isGrokModel()
+            this.isH1dr4Model()
               ? { search_parameters: { mode: "auto" } }
               : undefined
           );
@@ -404,12 +407,12 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Stream response and accumulate
-        const tools = await getAllGrokTools();
-        const stream = this.grokClient.chatStream(
+        const tools = await getAllH1dr4Tools();
+        const stream = this.h1dr4Client.chatStream(
           this.messages,
           tools,
           undefined,
-          this.isGrokModel()
+          this.isH1dr4Model()
             ? { search_parameters: { mode: "auto" } }
             : undefined
         );
@@ -597,7 +600,7 @@ Current working directory: ${process.cwd()}`,
     }
   }
 
-  private async executeTool(toolCall: GrokToolCall): Promise<ToolResult> {
+  private async executeTool(toolCall: H1dr4ToolCall): Promise<ToolResult> {
     try {
       const args = JSON.parse(toolCall.function.arguments);
 
@@ -656,6 +659,13 @@ Current working directory: ${process.cwd()}`,
             includeHidden: args.include_hidden,
           });
 
+        case "osint_search":
+          return await this.osint.search(args.query);
+
+        case "reason":
+          const reasoning = await this.h1dr4Client.reason(args.prompt);
+          return { success: true, output: reasoning };
+
         default:
           // Check if this is an MCP tool
           if (toolCall.function.name.startsWith("mcp__")) {
@@ -675,7 +685,7 @@ Current working directory: ${process.cwd()}`,
     }
   }
 
-  private async executeMCPTool(toolCall: GrokToolCall): Promise<ToolResult> {
+  private async executeMCPTool(toolCall: H1dr4ToolCall): Promise<ToolResult> {
     try {
       const args = JSON.parse(toolCall.function.arguments);
       const mcpManager = getMCPManager();
@@ -726,11 +736,11 @@ Current working directory: ${process.cwd()}`,
   }
 
   getCurrentModel(): string {
-    return this.grokClient.getCurrentModel();
+    return this.h1dr4Client.getCurrentModel();
   }
 
   setModel(model: string): void {
-    this.grokClient.setModel(model);
+    this.h1dr4Client.setModel(model);
     // Update token counter for new model
     this.tokenCounter.dispose();
     this.tokenCounter = createTokenCounter(model);

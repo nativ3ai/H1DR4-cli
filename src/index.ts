@@ -4,7 +4,7 @@ import React from "react";
 import { render } from "ink";
 import { program } from "commander";
 import * as dotenv from "dotenv";
-import { GrokAgent } from "./agent/grok-agent";
+import { H1dr4Agent } from "./agent/h1dr4-agent";
 import ChatInterface from "./ui/components/chat-interface";
 import { getSettingsManager } from "./utils/settings-manager";
 import { ConfirmationService } from "./utils/confirmation-service";
@@ -72,11 +72,11 @@ async function saveCommandLineSettings(apiKey?: string, baseURL?: string): Promi
     // Update with command line values
     if (apiKey) {
       manager.updateUserSetting('apiKey', apiKey);
-      console.log("✅ API key saved to ~/.grok/user-settings.json");
+      console.log("✅ API key saved to ~/.h1dr4/user-settings.json");
     }
     if (baseURL) {
       manager.updateUserSetting('baseURL', baseURL);
-      console.log("✅ Base URL saved to ~/.grok/user-settings.json");
+      console.log("✅ Base URL saved to ~/.h1dr4/user-settings.json");
     }
   } catch (error) {
     console.warn("⚠️ Could not save settings to file:", error instanceof Error ? error.message : "Unknown error");
@@ -86,7 +86,7 @@ async function saveCommandLineSettings(apiKey?: string, baseURL?: string): Promi
 // Load model from user settings if not in environment
 function loadModel(): string | undefined {
   // First check environment variables
-  let model = process.env.GROK_MODEL;
+  let model = process.env.H1DR4_MODEL;
 
   if (!model) {
     // Use the unified model loading from settings manager
@@ -109,7 +109,7 @@ async function handleCommitAndPushHeadless(
   maxToolRounds?: number
 ): Promise<void> {
   try {
-    const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+    const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -231,7 +231,7 @@ async function processPromptHeadless(
   maxToolRounds?: number
 ): Promise<void> {
   try {
-    const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+    const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -302,9 +302,9 @@ async function processPromptHeadless(
 }
 
 program
-  .name("grok")
+  .name("h1dr4")
   .description(
-    "A conversational AI CLI tool powered by Grok with text editor capabilities"
+    "A conversational AI CLI tool powered by H1dr4 with text editor capabilities"
   )
   .version("1.0.1")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
@@ -315,7 +315,7 @@ program
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set GROK_MODEL env var)"
+    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -348,7 +348,7 @@ program
 
       if (!apiKey) {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
         );
         process.exit(1);
       }
@@ -365,14 +365,14 @@ program
       }
 
       // Interactive mode: launch UI
-      const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
-      console.log("🤖 Starting Grok CLI Conversational Assistant...\n");
+      const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
+      console.log("🤖 Starting H1dr4 CLI Conversational Assistant...\n");
 
       ensureUserSettingsDirectory();
 
       render(React.createElement(ChatInterface, { agent }));
     } catch (error: any) {
-      console.error("❌ Error initializing Grok CLI:", error.message);
+      console.error("❌ Error initializing H1dr4 CLI:", error.message);
       process.exit(1);
     }
   });
@@ -393,7 +393,7 @@ gitCommand
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set GROK_MODEL env var)"
+    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
   )
   .option(
     "--max-tool-rounds <rounds>",
@@ -422,7 +422,7 @@ gitCommand
 
       if (!apiKey) {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
         );
         process.exit(1);
       }

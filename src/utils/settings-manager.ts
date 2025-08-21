@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 /**
- * User-level settings stored in ~/.grok/user-settings.json
+ * User-level settings stored in ~/.h1dr4/user-settings.json
  * These are global settings that apply across all projects
  */
 export interface UserSettings {
@@ -14,7 +14,7 @@ export interface UserSettings {
 }
 
 /**
- * Project-level settings stored in .grok/settings.json
+ * Project-level settings stored in .h1dr4/settings.json
  * These are project-specific settings
  */
 export interface ProjectSettings {
@@ -53,11 +53,11 @@ export class SettingsManager {
   private projectSettingsPath: string;
   
   private constructor() {
-    // User settings path: ~/.grok/user-settings.json
-    this.userSettingsPath = path.join(os.homedir(), '.grok', 'user-settings.json');
+    // User settings path: ~/.h1dr4/user-settings.json
+    this.userSettingsPath = path.join(os.homedir(), '.h1dr4', 'user-settings.json');
     
-    // Project settings path: .grok/settings.json (in current working directory)
-    this.projectSettingsPath = path.join(process.cwd(), '.grok', 'settings.json');
+    // Project settings path: .h1dr4/settings.json (in current working directory)
+    this.projectSettingsPath = path.join(process.cwd(), '.h1dr4', 'settings.json');
   }
   
   /**
@@ -81,7 +81,7 @@ export class SettingsManager {
   }
   
   /**
-   * Load user settings from ~/.grok/user-settings.json
+   * Load user settings from ~/.h1dr4/user-settings.json
    */
   public loadUserSettings(): UserSettings {
     try {
@@ -103,7 +103,7 @@ export class SettingsManager {
   }
   
   /**
-   * Save user settings to ~/.grok/user-settings.json
+   * Save user settings to ~/.h1dr4/user-settings.json
    */
   public saveUserSettings(settings: Partial<UserSettings>): void {
     try {
@@ -152,7 +152,7 @@ export class SettingsManager {
   }
   
   /**
-   * Load project settings from .grok/settings.json
+   * Load project settings from .h1dr4/settings.json
    */
   public loadProjectSettings(): ProjectSettings {
     try {
@@ -174,7 +174,7 @@ export class SettingsManager {
   }
   
   /**
-   * Save project settings to .grok/settings.json
+   * Save project settings to .h1dr4/settings.json
    */
   public saveProjectSettings(settings: Partial<ProjectSettings>): void {
     try {

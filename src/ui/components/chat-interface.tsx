@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Box, Text } from "ink";
-import { GrokAgent, ChatEntry } from "../../agent/grok-agent";
+import { H1dr4Agent, ChatEntry } from "../../agent/h1dr4-agent";
 import { useInputHandler } from "../../hooks/use-input-handler";
 import { LoadingSpinner } from "./loading-spinner";
 import { CommandSuggestions } from "./command-suggestions";
@@ -17,11 +17,11 @@ import ApiKeyInput from "./api-key-input";
 import cfonts from "cfonts";
 
 interface ChatInterfaceProps {
-  agent?: GrokAgent;
+  agent?: H1dr4Agent;
 }
 
 // Main chat component that handles input when agent is available
-function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
+function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingTime, setProcessingTime] = useState(0);
@@ -74,7 +74,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
     console.log("    ");
 
     // Generate logo with margin to match Ink paddingX={2}
-    const logoOutput = cfonts.render("GROK", {
+    const logoOutput = cfonts.render("H1DR4", {
       font: "3d",
       align: "left",
       colors: ["magenta", "gray"],
@@ -166,7 +166,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
             </Text>
             <Text color="gray">2. Be specific for the best results.</Text>
             <Text color="gray">
-              3. Create GROK.md files to customize your interactions with Grok.
+              3. Create H1DR4.md files to customize your interactions with H1dr4.
             </Text>
             <Text color="gray">
               4. Press Shift+Tab to toggle auto-edit mode.
@@ -251,11 +251,11 @@ function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
 
 // Main component that handles API key input or chat interface
 export default function ChatInterface({ agent }: ChatInterfaceProps) {
-  const [currentAgent, setCurrentAgent] = useState<GrokAgent | null>(
+  const [currentAgent, setCurrentAgent] = useState<H1dr4Agent | null>(
     agent || null
   );
 
-  const handleApiKeySet = (newAgent: GrokAgent) => {
+  const handleApiKeySet = (newAgent: H1dr4Agent) => {
     setCurrentAgent(newAgent);
   };
 
