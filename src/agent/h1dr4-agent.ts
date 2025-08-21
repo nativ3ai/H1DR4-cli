@@ -15,6 +15,7 @@ import {
   ConfirmationTool,
   SearchTool,
   OSINTTool,
+  ReasoningWorker,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -50,6 +51,19 @@ export class H1dr4Agent extends EventEmitter {
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
   private osint: OSINTTool;
+  private reasoningWorker: ReasoningWorker;
+  private reasoningPatterns: RegExp[] = [
+    /polymarket|prediction market|betting|odds|market|poll|vote/i,
+    /predict|election|politics|president|congress|government|policy/i,
+    /news|latest|breaking|current|update|happening/i,
+    /crypto|bitcoin|stock|price|trading|volume|market/i,
+    /remember|previous|before|history|past|tracking/i,
+    /search|find|look up|investigate|research/i,
+    /analyze|full|complete|everything|all data|comprehensive/i,
+    /osint|intelligence|leak|investigation|surveillance|spy|secret|classified|breach|hack/i,
+    /blockchain|crypto|ethereum|transaction|wallet|defi|smart contract|address|hash/i,
+    /economic|federal|reserve|interest|inflation|monetary|finance|gdp|unemployment|fed/i,
+  ];
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -76,6 +90,7 @@ export class H1dr4Agent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
+    this.reasoningWorker = new ReasoningWorker();
     this.tokenCounter = createTokenCounter(modelToUse);
 
     // Initialize MCP servers if configured
@@ -175,6 +190,10 @@ Current working directory: ${process.cwd()}`,
     return currentModel.toLowerCase().includes("h1dr4");
   }
 
+  private shouldOfferReasoning(message: string): boolean {
+    return this.reasoningPatterns.some((r) => r.test(message));
+  }
+
   async processUserMessage(message: string): Promise<ChatEntry[]> {
     // Add user message to conversation
     const userEntry: ChatEntry = {
@@ -186,6 +205,32 @@ Current working directory: ${process.cwd()}`,
     this.messages.push({ role: "user", content: message });
 
     const newEntries: ChatEntry[] = [userEntry];
+    if (this.shouldOfferReasoning(message)) {
+      const confirmation = await this.confirmationTool.requestConfirmation({
+        operation: "Use reasoning tool",
+        filename: "reasoning",
+        description: message,
+      });
+
+      if (confirmation.success) {
+        const reasoning = await this.reasoningWorker.analyze(message);
+        const assistantEntry: ChatEntry = {
+          type: "assistant",
+          content: reasoning.success
+            ? reasoning.output || ""
+            : reasoning.error || "",
+          timestamp: new Date(),
+        };
+        this.chatHistory.push(assistantEntry);
+        this.messages.push({
+          role: "assistant",
+          content: assistantEntry.content,
+        });
+        newEntries.push(assistantEntry);
+        return newEntries;
+      }
+    }
+
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
 
@@ -388,6 +433,31 @@ Current working directory: ${process.cwd()}`,
       type: "token_count",
       tokenCount: inputTokens,
     };
+
+    if (this.shouldOfferReasoning(message)) {
+      const confirmation = await this.confirmationTool.requestConfirmation({
+        operation: "Use reasoning tool",
+        filename: "reasoning",
+        description: message,
+      });
+
+      if (confirmation.success) {
+        const reasoning = await this.reasoningWorker.analyze(message);
+        const content = reasoning.success
+          ? reasoning.output || ""
+          : reasoning.error || "";
+        const assistantEntry: ChatEntry = {
+          type: "assistant",
+          content,
+          timestamp: new Date(),
+        };
+        this.chatHistory.push(assistantEntry);
+        this.messages.push({ role: "assistant", content });
+        yield { type: "content", content };
+        yield { type: "done" };
+        return;
+      }
+    }
 
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
@@ -663,8 +733,7 @@ Current working directory: ${process.cwd()}`,
           return await this.osint.search(args.query);
 
         case "reason":
-          const reasoning = await this.h1dr4Client.reason(args.prompt);
-          return { success: true, output: reasoning };
+          return await this.reasoningWorker.analyze(args.prompt);
 
         default:
           // Check if this is an MCP tool
