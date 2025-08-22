@@ -724,6 +724,37 @@ Current working directory: ${process.cwd()}`,
           if (!confirmation.success) {
             return { success: false, error: "Reasoning operation rejected by user" };
           }
+          // Replace current plan with a single reasoning task
+          const reasoningId = `reason-${Date.now()}`;
+          const reasoningTodo = [
+            {
+              id: reasoningId,
+              content: args.prompt as string,
+              status: "in_progress" as const,
+              priority: "high" as const,
+            },
+          ];
+          this.todoTool.createTodoList(reasoningTodo).then((result) => {
+            if (!result.success) {
+              const entry: ChatEntry = {
+                type: "assistant",
+                content: result.error || "Error occurred",
+                timestamp: new Date(),
+              };
+              this.addChatEntry(entry);
+              this.messages.push({ role: "assistant", content: entry.content });
+            }
+          });
+
+          // Show a streaming entry while reasoning runs
+          const pendingEntry: ChatEntry = {
+            type: "assistant",
+            content: `Processing: ${args.prompt}`,
+            timestamp: new Date(),
+            isStreaming: true,
+          };
+          this.addChatEntry(pendingEntry);
+
           // Run reasoning in background so user can continue interacting
           this.reasoningWorker.analyze(args.prompt).then((result) => {
             const entry: ChatEntry = {
@@ -736,6 +767,10 @@ Current working directory: ${process.cwd()}`,
             this.addChatEntry(entry);
             // Preserve context for future interactions
             this.messages.push({ role: "assistant", content: entry.content });
+            // Mark reasoning task as completed
+            this.todoTool.updateTodoList([
+              { id: reasoningId, status: "completed" as const },
+            ]);
           });
           return { success: true, output: "Reasoning started (async)" };
 
