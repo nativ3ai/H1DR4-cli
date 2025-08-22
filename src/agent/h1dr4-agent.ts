@@ -52,9 +52,6 @@ export class H1dr4Agent extends EventEmitter {
   private search: SearchTool;
   private osint: OSINTTool;
   private reasoningWorker: ReasoningWorker;
-  private reasoningVerbPattern: RegExp = /(analyz(?:e|ing|is)|assess|evaluate|impact|implications|predict|forecast|projection|simulate|simulation|estimate|likelihood|probability|scenario|outlook|risk|trend|monte\s*carlo)/i;
-  private reasoningDomainPattern: RegExp = /(market|stock|crypto|bitcoin|ethereum|price|trading|economy|economic|federal|reserve|interest|inflation|monetary|finance|gdp|unemployment|regulation|policy|adoption|technology|ai|cybersecurity|blockchain)/i;
-  private osintPattern: RegExp = /(osint|leak|data leak|breach|breaches|dump|password|credential|exposed|database|hacked|hack|breached|intel|intelligence|surveillance|spy|secret|classified|investigation|dark web)/i;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -181,15 +178,28 @@ Current working directory: ${process.cwd()}`,
     return currentModel.toLowerCase().includes("h1dr4");
   }
 
-  private shouldOfferReasoning(message: string): boolean {
-    return (
-      this.reasoningVerbPattern.test(message) &&
-      this.reasoningDomainPattern.test(message)
-    );
-  }
+  private async classifyIntent(
+    message: string
+  ): Promise<"reasoning" | "osint" | "none"> {
+    try {
+      const response = await this.h1dr4Client.chat([
+        {
+          role: "system",
+          content:
+            "You are an intent classifier. For the given user message decide whether it requires the 'reasoning' tool for complex analysis and predictions, the 'osint' tool for leak or intelligence searches, or neither. Respond with exactly one word: reasoning, osint, or none.",
+        },
+        { role: "user", content: message },
+      ]);
 
-  private shouldUseOsint(message: string): boolean {
-    return this.osintPattern.test(message);
+      const content = response.choices[0]?.message?.content
+        ?.trim()
+        .toLowerCase();
+      if (content === "reasoning") return "reasoning";
+      if (content === "osint") return "osint";
+      return "none";
+    } catch {
+      return "none";
+    }
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
@@ -204,7 +214,9 @@ Current working directory: ${process.cwd()}`,
 
     const newEntries: ChatEntry[] = [userEntry];
 
-    if (this.shouldUseOsint(message)) {
+    const intent = await this.classifyIntent(message);
+
+    if (intent === "osint") {
       const osintResult = await this.osint.search(message);
       const assistantEntry: ChatEntry = {
         type: "assistant",
@@ -222,7 +234,7 @@ Current working directory: ${process.cwd()}`,
       return newEntries;
     }
 
-    if (this.shouldOfferReasoning(message)) {
+    if (intent === "reasoning") {
       const confirmation = await this.confirmationTool.requestConfirmation({
         operation: "Use reasoning tool",
         filename: "reasoning",
@@ -451,7 +463,26 @@ Current working directory: ${process.cwd()}`,
       tokenCount: inputTokens,
     };
 
-    if (this.shouldOfferReasoning(message)) {
+    const intent = await this.classifyIntent(message);
+
+    if (intent === "osint") {
+      const osintResult = await this.osint.search(message);
+      const content = osintResult.success
+        ? osintResult.output || ""
+        : osintResult.error || "";
+      const assistantEntry: ChatEntry = {
+        type: "assistant",
+        content,
+        timestamp: new Date(),
+      };
+      this.chatHistory.push(assistantEntry);
+      this.messages.push({ role: "assistant", content });
+      yield { type: "content", content };
+      yield { type: "done" };
+      return;
+    }
+
+    if (intent === "reasoning") {
       const confirmation = await this.confirmationTool.requestConfirmation({
         operation: "Use reasoning tool",
         filename: "reasoning",
