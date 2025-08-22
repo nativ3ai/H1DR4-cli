@@ -261,6 +261,39 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
   {
     type: "function",
     function: {
+      name: "live_search",
+      description:
+        "Search real-time web, news, and X posts using Grok's live search",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Search query for live data",
+          },
+          search_parameters: {
+            type: "object",
+            description:
+              "Optional live search parameters (defaults to auto mode with all sources)",
+            properties: {
+              mode: {
+                type: "string",
+                enum: ["auto", "on", "off"],
+              },
+              from_date: { type: "string" },
+              to_date: { type: "string" },
+              max_search_results: { type: "number" },
+              return_citations: { type: "boolean" },
+            },
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "reason",
       description:
         "Use a dedicated reasoning model for predictions, cross-referencing news, running simulations (e.g., Monte Carlo), and other complex questions",

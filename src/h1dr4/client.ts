@@ -27,6 +27,10 @@ export interface H1dr4ToolCall {
 
 export interface SearchParameters {
   mode?: "auto" | "on" | "off";
+  from_date?: string;
+  to_date?: string;
+  max_search_results?: number;
+  return_citations?: boolean;
   // sources removed - let API use default sources to avoid format issues
 }
 

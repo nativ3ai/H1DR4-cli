@@ -118,17 +118,19 @@ You have access to these tools:
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
+- live_search: Search real-time web, news, and X posts using Grok's live search
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
- REASONING WORKER BEST PRACTICES:
- - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, cross-referencing news
- - Effective queries are comprehensive, provide context, and specify timeframes
- - Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
- - Ineffective queries are vague, lack context, or are single words
+REASONING WORKER BEST PRACTICES:
+ - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, or complex synthesis of multiple news sources
+- Effective queries are comprehensive, provide context, and specify timeframes
+- Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
+- Ineffective queries are vague, lack context, or are single words
 
- REAL-TIME INFORMATION:
- You can call built-in real-time web search and X (Twitter) tools to retrieve up-to-the-minute information.
- Use these when users request current events, breaking news, or recent data.
+REAL-TIME INFORMATION:
+ Use the live_search tool to query real-time web, news, and X (Twitter) data via Grok's live search.
+ Provide descriptive queries; mode defaults to auto and all sources are searched unless you specify otherwise.
+ Prefer live_search for current events, social media mentions, or up-to-the-minute data instead of the reasoning tool.
  This capability is independent from the reasoning worker and does not require user confirmation.
 
  IMPORTANT TOOL USAGE RULES:
@@ -714,6 +716,18 @@ Current working directory: ${process.cwd()}`,
 
         case "osint_search":
           return await this.osint.search(args.query);
+
+        case "live_search":
+          const searchResponse = await this.h1dr4Client.search(
+            args.query,
+            args.search_parameters
+          );
+          return {
+            success: true,
+            output:
+              searchResponse.choices[0]?.message?.content ||
+              "No results returned",
+          };
 
         case "reason":
           const confirmation = await this.confirmationTool.requestConfirmation({
