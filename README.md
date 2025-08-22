@@ -18,7 +18,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - While the agent is executing tasks, you can continue typing new requests.
 These messages are queued and the active plan is updated on the fly—no need
 to cancel the current run.
-- **🌍 Global Installation**: Install and use anywhere with `npm i -g @vibe-kit/h1dr4-cli`
+- **🌍 Global Installation**: Install and use anywhere with `npm i -g @h1dr4/h1dr4-cli`
 
 ## Installation
 
@@ -29,7 +29,7 @@ to cancel the current run.
 
 ### Global Installation (Recommended)
 ```bash
-npm install -g @vibe-kit/h1dr4-cli
+npm install -g @h1dr4/h1dr4-cli
 ```
 
 ### Local Development
