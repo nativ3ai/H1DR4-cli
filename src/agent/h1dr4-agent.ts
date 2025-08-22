@@ -107,11 +107,21 @@ You have access to these tools:
 - search: Unified search tool for finding text content or files (similar to Cursor's search functionality)
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
+- osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
+- reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
-REAL-TIME INFORMATION:
-You have access to real-time web search and X (Twitter) data. When users ask for current information, latest news, or recent events, you automatically have access to up-to-date information from the web and social media.
+ REASONING WORKER BEST PRACTICES:
+ - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning
+ - Effective queries are comprehensive, provide context, and specify timeframes
+ - Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
+ - Ineffective queries are vague, lack context, or are single words
 
-IMPORTANT TOOL USAGE RULES:
+ REAL-TIME INFORMATION:
+ You can call built-in real-time web search and X (Twitter) tools to retrieve up-to-the-minute information.
+ Use these when users request current events, breaking news, or recent data.
+ This capability is independent from the reasoning worker and does not require user confirmation.
+
+ IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
 - ALWAYS use str_replace_editor to modify existing files, even for small changes
 - Before editing a file, use view_file to see its current contents
@@ -178,30 +188,6 @@ Current working directory: ${process.cwd()}`,
     return currentModel.toLowerCase().includes("h1dr4");
   }
 
-  private async classifyIntent(
-    message: string
-  ): Promise<"reasoning" | "osint" | "none"> {
-    try {
-      const response = await this.h1dr4Client.chat([
-        {
-          role: "system",
-          content:
-            "You are an intent classifier. For the given user message decide whether it requires the 'reasoning' tool for complex analysis and predictions, the 'osint' tool for leak or intelligence searches, or neither. Respond with exactly one word: reasoning, osint, or none.",
-        },
-        { role: "user", content: message },
-      ]);
-
-      const content = response.choices[0]?.message?.content
-        ?.trim()
-        .toLowerCase();
-      if (content === "reasoning") return "reasoning";
-      if (content === "osint") return "osint";
-      return "none";
-    } catch {
-      return "none";
-    }
-  }
-
   async processUserMessage(message: string): Promise<ChatEntry[]> {
     // Add user message to conversation
     const userEntry: ChatEntry = {
@@ -213,52 +199,6 @@ Current working directory: ${process.cwd()}`,
     this.messages.push({ role: "user", content: message });
 
     const newEntries: ChatEntry[] = [userEntry];
-
-    const intent = await this.classifyIntent(message);
-
-    if (intent === "osint") {
-      const osintResult = await this.osint.search(message);
-      const assistantEntry: ChatEntry = {
-        type: "assistant",
-        content: osintResult.success
-          ? osintResult.output || ""
-          : osintResult.error || "",
-        timestamp: new Date(),
-      };
-      this.chatHistory.push(assistantEntry);
-      this.messages.push({
-        role: "assistant",
-        content: assistantEntry.content,
-      });
-      newEntries.push(assistantEntry);
-      return newEntries;
-    }
-
-    if (intent === "reasoning") {
-      const confirmation = await this.confirmationTool.requestConfirmation({
-        operation: "Use reasoning tool",
-        filename: "reasoning",
-        description: message,
-      });
-
-      if (confirmation.success) {
-        const reasoning = await this.reasoningWorker.analyze(message);
-        const assistantEntry: ChatEntry = {
-          type: "assistant",
-          content: reasoning.success
-            ? reasoning.output || ""
-            : reasoning.error || "",
-          timestamp: new Date(),
-        };
-        this.chatHistory.push(assistantEntry);
-        this.messages.push({
-          role: "assistant",
-          content: assistantEntry.content,
-        });
-        newEntries.push(assistantEntry);
-        return newEntries;
-      }
-    }
 
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
@@ -462,50 +402,6 @@ Current working directory: ${process.cwd()}`,
       type: "token_count",
       tokenCount: inputTokens,
     };
-
-    const intent = await this.classifyIntent(message);
-
-    if (intent === "osint") {
-      const osintResult = await this.osint.search(message);
-      const content = osintResult.success
-        ? osintResult.output || ""
-        : osintResult.error || "";
-      const assistantEntry: ChatEntry = {
-        type: "assistant",
-        content,
-        timestamp: new Date(),
-      };
-      this.chatHistory.push(assistantEntry);
-      this.messages.push({ role: "assistant", content });
-      yield { type: "content", content };
-      yield { type: "done" };
-      return;
-    }
-
-    if (intent === "reasoning") {
-      const confirmation = await this.confirmationTool.requestConfirmation({
-        operation: "Use reasoning tool",
-        filename: "reasoning",
-        description: message,
-      });
-
-      if (confirmation.success) {
-        const reasoning = await this.reasoningWorker.analyze(message);
-        const content = reasoning.success
-          ? reasoning.output || ""
-          : reasoning.error || "";
-        const assistantEntry: ChatEntry = {
-          type: "assistant",
-          content,
-          timestamp: new Date(),
-        };
-        this.chatHistory.push(assistantEntry);
-        this.messages.push({ role: "assistant", content });
-        yield { type: "content", content };
-        yield { type: "done" };
-        return;
-      }
-    }
 
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
@@ -781,6 +677,14 @@ Current working directory: ${process.cwd()}`,
           return await this.osint.search(args.query);
 
         case "reason":
+          const confirmation = await this.confirmationTool.requestConfirmation({
+            operation: "Use reasoning tool",
+            filename: "reasoning",
+            description: args.prompt,
+          });
+          if (!confirmation.success) {
+            return { success: false, error: "Reasoning operation rejected by user" };
+          }
           return await this.reasoningWorker.analyze(args.prompt);
 
         default:
