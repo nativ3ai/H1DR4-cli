@@ -102,6 +102,16 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
   }, []);
 
   useEffect(() => {
+    const handler = (entry: ChatEntry) => {
+      setChatHistory((prev) => [...prev, entry]);
+    };
+    agent.on("chat_entry", handler);
+    return () => {
+      agent.off("chat_entry", handler);
+    };
+  }, [agent]);
+
+  useEffect(() => {
     const handleConfirmationRequest = (options: ConfirmationOptions) => {
       setConfirmationOptions(options);
     };

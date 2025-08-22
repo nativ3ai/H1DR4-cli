@@ -1,4 +1,5 @@
 import { ToolResult } from '../types';
+import { EventEmitter } from 'events';
 
 interface TodoItem {
   id: string;
@@ -7,7 +8,7 @@ interface TodoItem {
   priority: 'high' | 'medium' | 'low';
 }
 
-export class TodoTool {
+export class TodoTool extends EventEmitter {
   private todos: TodoItem[] = [];
 
   formatTodoList(): string {
@@ -58,7 +59,7 @@ export class TodoTool {
 
   async createTodoList(todos: TodoItem[]): Promise<ToolResult> {
     try {
-      // Validate todos
+      // Validate todos first
       for (const todo of todos) {
         if (!todo.id || !todo.content || !todo.status || !todo.priority) {
           return {
@@ -82,8 +83,15 @@ export class TodoTool {
         }
       }
 
-      this.todos = todos;
-      
+      // Build todo list asynchronously so updates can stream in
+      this.todos = [];
+      for (const todo of todos) {
+        this.todos.push(todo);
+        this.emit('todo_update', this.formatTodoList());
+        // Yield to event loop to allow updates/interruption
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
       return {
         success: true,
         output: this.formatTodoList()
@@ -101,8 +109,8 @@ export class TodoTool {
       const updatedIds: string[] = [];
 
       for (const update of updates) {
-        const todoIndex = this.todos.findIndex(t => t.id === update.id);
-        
+        const todoIndex = this.todos.findIndex((t) => t.id === update.id);
+
         if (todoIndex === -1) {
           return {
             success: false,
@@ -132,6 +140,8 @@ export class TodoTool {
 
         updatedIds.push(update.id);
       }
+
+      this.emit('todo_update', this.formatTodoList());
 
       return {
         success: true,

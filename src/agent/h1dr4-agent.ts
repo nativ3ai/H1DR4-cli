@@ -75,6 +75,16 @@ export class H1dr4Agent extends EventEmitter {
     this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
+    this.todoTool.on('todo_update', (output: string) => {
+      const entry: ChatEntry = {
+        type: 'assistant',
+        content: output,
+        timestamp: new Date(),
+      };
+      this.addChatEntry(entry);
+      // Preserve context for future interactions
+      this.messages.push({ role: 'assistant', content: output });
+    });
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
@@ -181,6 +191,11 @@ Current working directory: ${process.cwd()}`,
         this.mcpInitialized = true;
       }
     });
+  }
+
+  private addChatEntry(entry: ChatEntry): void {
+    this.chatHistory.push(entry);
+    this.emit("chat_entry", entry);
   }
 
   private isH1dr4Model(): boolean {
@@ -655,10 +670,34 @@ Current working directory: ${process.cwd()}`,
           return await this.bash.execute(args.command);
 
         case "create_todo_list":
-          return await this.todoTool.createTodoList(args.todos);
+          // Run todo list creation in the background
+          this.todoTool.createTodoList(args.todos).then((result) => {
+            if (!result.success) {
+              const entry: ChatEntry = {
+                type: "assistant",
+                content: result.error || "Error occurred",
+                timestamp: new Date(),
+              };
+              this.addChatEntry(entry);
+              this.messages.push({ role: "assistant", content: entry.content });
+            }
+          });
+          return { success: true, output: "Planning started (async)" };
 
         case "update_todo_list":
-          return await this.todoTool.updateTodoList(args.updates);
+          // Run todo list updates in the background
+          this.todoTool.updateTodoList(args.updates).then((result) => {
+            if (!result.success) {
+              const entry: ChatEntry = {
+                type: "assistant",
+                content: result.error || "Error occurred",
+                timestamp: new Date(),
+              };
+              this.addChatEntry(entry);
+              this.messages.push({ role: "assistant", content: entry.content });
+            }
+          });
+          return { success: true, output: "Todo list update started (async)" };
 
         case "search":
           return await this.search.search(args.query, {
@@ -685,7 +724,20 @@ Current working directory: ${process.cwd()}`,
           if (!confirmation.success) {
             return { success: false, error: "Reasoning operation rejected by user" };
           }
-          return await this.reasoningWorker.analyze(args.prompt);
+          // Run reasoning in background so user can continue interacting
+          this.reasoningWorker.analyze(args.prompt).then((result) => {
+            const entry: ChatEntry = {
+              type: "assistant",
+              content: result.success
+                ? result.output || "Success"
+                : result.error || "Error occurred",
+              timestamp: new Date(),
+            };
+            this.addChatEntry(entry);
+            // Preserve context for future interactions
+            this.messages.push({ role: "assistant", content: entry.content });
+          });
+          return { success: true, output: "Reasoning started (async)" };
 
         default:
           // Check if this is an MCP tool
