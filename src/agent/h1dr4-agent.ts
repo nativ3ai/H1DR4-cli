@@ -15,6 +15,7 @@ import {
   ConfirmationTool,
   SearchTool,
   OSINTTool,
+  ReasoningWorker,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -50,6 +51,7 @@ export class H1dr4Agent extends EventEmitter {
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
   private osint: OSINTTool;
+  private reasoningWorker: ReasoningWorker;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -76,6 +78,7 @@ export class H1dr4Agent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
+    this.reasoningWorker = new ReasoningWorker();
     this.tokenCounter = createTokenCounter(modelToUse);
 
     // Initialize MCP servers if configured
@@ -175,6 +178,30 @@ Current working directory: ${process.cwd()}`,
     return currentModel.toLowerCase().includes("h1dr4");
   }
 
+  private async classifyIntent(
+    message: string
+  ): Promise<"reasoning" | "osint" | "none"> {
+    try {
+      const response = await this.h1dr4Client.chat([
+        {
+          role: "system",
+          content:
+            "You are an intent classifier. For the given user message decide whether it requires the 'reasoning' tool for complex analysis and predictions, the 'osint' tool for leak or intelligence searches, or neither. Respond with exactly one word: reasoning, osint, or none.",
+        },
+        { role: "user", content: message },
+      ]);
+
+      const content = response.choices[0]?.message?.content
+        ?.trim()
+        .toLowerCase();
+      if (content === "reasoning") return "reasoning";
+      if (content === "osint") return "osint";
+      return "none";
+    } catch {
+      return "none";
+    }
+  }
+
   async processUserMessage(message: string): Promise<ChatEntry[]> {
     // Add user message to conversation
     const userEntry: ChatEntry = {
@@ -186,6 +213,53 @@ Current working directory: ${process.cwd()}`,
     this.messages.push({ role: "user", content: message });
 
     const newEntries: ChatEntry[] = [userEntry];
+
+    const intent = await this.classifyIntent(message);
+
+    if (intent === "osint") {
+      const osintResult = await this.osint.search(message);
+      const assistantEntry: ChatEntry = {
+        type: "assistant",
+        content: osintResult.success
+          ? osintResult.output || ""
+          : osintResult.error || "",
+        timestamp: new Date(),
+      };
+      this.chatHistory.push(assistantEntry);
+      this.messages.push({
+        role: "assistant",
+        content: assistantEntry.content,
+      });
+      newEntries.push(assistantEntry);
+      return newEntries;
+    }
+
+    if (intent === "reasoning") {
+      const confirmation = await this.confirmationTool.requestConfirmation({
+        operation: "Use reasoning tool",
+        filename: "reasoning",
+        description: message,
+      });
+
+      if (confirmation.success) {
+        const reasoning = await this.reasoningWorker.analyze(message);
+        const assistantEntry: ChatEntry = {
+          type: "assistant",
+          content: reasoning.success
+            ? reasoning.output || ""
+            : reasoning.error || "",
+          timestamp: new Date(),
+        };
+        this.chatHistory.push(assistantEntry);
+        this.messages.push({
+          role: "assistant",
+          content: assistantEntry.content,
+        });
+        newEntries.push(assistantEntry);
+        return newEntries;
+      }
+    }
+
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
 
@@ -388,6 +462,50 @@ Current working directory: ${process.cwd()}`,
       type: "token_count",
       tokenCount: inputTokens,
     };
+
+    const intent = await this.classifyIntent(message);
+
+    if (intent === "osint") {
+      const osintResult = await this.osint.search(message);
+      const content = osintResult.success
+        ? osintResult.output || ""
+        : osintResult.error || "";
+      const assistantEntry: ChatEntry = {
+        type: "assistant",
+        content,
+        timestamp: new Date(),
+      };
+      this.chatHistory.push(assistantEntry);
+      this.messages.push({ role: "assistant", content });
+      yield { type: "content", content };
+      yield { type: "done" };
+      return;
+    }
+
+    if (intent === "reasoning") {
+      const confirmation = await this.confirmationTool.requestConfirmation({
+        operation: "Use reasoning tool",
+        filename: "reasoning",
+        description: message,
+      });
+
+      if (confirmation.success) {
+        const reasoning = await this.reasoningWorker.analyze(message);
+        const content = reasoning.success
+          ? reasoning.output || ""
+          : reasoning.error || "";
+        const assistantEntry: ChatEntry = {
+          type: "assistant",
+          content,
+          timestamp: new Date(),
+        };
+        this.chatHistory.push(assistantEntry);
+        this.messages.push({ role: "assistant", content });
+        yield { type: "content", content };
+        yield { type: "done" };
+        return;
+      }
+    }
 
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
@@ -663,8 +781,7 @@ Current working directory: ${process.cwd()}`,
           return await this.osint.search(args.query);
 
         case "reason":
-          const reasoning = await this.h1dr4Client.reason(args.prompt);
-          return { success: true, output: reasoning };
+          return await this.reasoningWorker.analyze(args.prompt);
 
         default:
           // Check if this is an MCP tool
