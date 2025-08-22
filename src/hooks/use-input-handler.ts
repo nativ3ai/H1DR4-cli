@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInput, useStdout, render, Text } from "ink";
+import { useInput, useStdout } from "ink";
 import { H1dr4Agent, ChatEntry } from "../agent/h1dr4-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { useEnhancedInput, Key } from "./use-enhanced-input";
@@ -229,10 +229,7 @@ export function useInputHandler({
     const trimmedInput = input.trim();
 
     if (trimmedInput === "/clear") {
-      // Reset chat history
       setChatHistory([]);
-
-      // Reset processing states
       setIsProcessing(false);
       setIsStreaming(false);
       tokenEventEmitter.emit("update", 0);
@@ -614,18 +611,13 @@ Respond with ONLY the commit message, no additional text.`;
     try {
       setIsStreaming(true);
       let buffer = "";
-      let streamRenderer: any = null;
 
       for await (const chunk of agent.processUserMessageStream(userInput)) {
         switch (chunk.type) {
           case "content":
             if (chunk.content) {
               buffer += chunk.content;
-              if (!streamRenderer) {
-                streamRenderer = render(<Text>{chunk.content}</Text>, { stdout });
-              } else {
-                streamRenderer.rerender(<Text>{buffer}</Text>);
-              }
+              stdout.write(chunk.content);
             }
             break;
 
@@ -636,10 +628,7 @@ Respond with ONLY the commit message, no additional text.`;
             break;
 
           case "tool_calls":
-            if (streamRenderer) {
-              streamRenderer.unmount();
-              streamRenderer = null;
-            }
+            stdout.write("\n");
             if (chunk.toolCalls) {
               const assistantEntry: ChatEntry = {
                 type: "assistant",
@@ -683,10 +672,7 @@ Respond with ONLY the commit message, no additional text.`;
             break;
 
           case "done":
-            if (streamRenderer) {
-              streamRenderer.unmount();
-              streamRenderer = null;
-            }
+            stdout.write("\n");
             if (buffer) {
               const finalEntry: ChatEntry = {
                 type: "assistant",
