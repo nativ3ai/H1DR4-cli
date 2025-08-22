@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text, Static } from "ink";
+import { Box, Text } from "ink";
 import Spinner from "ink-spinner";
 import { ChatEntry } from "../../agent/h1dr4-agent";
 import { DiffRenderer } from "./diff-renderer";
@@ -224,31 +224,15 @@ export function ChatHistory({
       )
     : entries;
 
-  const completedEntries = filteredEntries.filter(
-    (entry) => !(entry.type === "assistant" && entry.isStreaming)
-  );
-  const streamingEntry = [...filteredEntries]
-    .reverse()
-    .find((entry) => entry.type === "assistant" && entry.isStreaming);
-
   return (
     <Box flexDirection="column">
-      <Static items={completedEntries}>
-        {(entry, index) => (
-          <MemoizedChatEntry
-            key={`${entry.timestamp.getTime()}-${index}`}
-            entry={entry}
-            index={index}
-          />
-        )}
-      </Static>
-      {streamingEntry && (
+      {filteredEntries.slice(-20).map((entry, index) => (
         <MemoizedChatEntry
-          key={`streaming-${streamingEntry.timestamp.getTime()}`}
-          entry={streamingEntry}
-          index={completedEntries.length}
+          key={`${entry.timestamp.getTime()}-${index}`}
+          entry={entry}
+          index={index}
         />
-      )}
+      ))}
     </Box>
   );
 }
