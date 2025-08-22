@@ -121,7 +121,7 @@ You have access to these tools:
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
  REASONING WORKER BEST PRACTICES:
- - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning
+ - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, cross-referencing news
  - Effective queries are comprehensive, provide context, and specify timeframes
  - Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
  - Ineffective queries are vague, lack context, or are single words

@@ -262,13 +262,15 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     type: "function",
     function: {
       name: "reason",
-      description: "Use a dedicated reasoning model for complex questions",
+      description:
+        "Use a dedicated reasoning model for predictions, cross-referencing news, running simulations (e.g., Monte Carlo), and other complex questions",
       parameters: {
         type: "object",
         properties: {
           prompt: {
             type: "string",
-            description: "Question or instruction requiring deep reasoning",
+            description:
+              "Question or instruction requiring deep reasoning, data synthesis, or simulation",
           },
         },
         required: ["prompt"],

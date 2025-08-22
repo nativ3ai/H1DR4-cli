@@ -1,5 +1,6 @@
 import { ToolResult } from '../types';
 import { EventEmitter } from 'events';
+import { randomUUID } from 'crypto';
 
 interface TodoItem {
   id: string;
@@ -7,6 +8,9 @@ interface TodoItem {
   status: 'pending' | 'in_progress' | 'completed';
   priority: 'high' | 'medium' | 'low';
 }
+
+// Input type allows id to be omitted so the tool can generate one
+type TodoInput = Omit<TodoItem, 'id'> & { id?: string };
 
 export class TodoTool extends EventEmitter {
   private todos: TodoItem[] = [];
@@ -50,21 +54,24 @@ export class TodoTool extends EventEmitter {
       const statusColor = getStatusColor(todo.status);
       const strikethrough = todo.status === 'completed' ? '\x1b[9m' : '';
       const indent = index === 0 ? '' : '  ';
-      
-      output += `${indent}${statusColor}${strikethrough}${checkbox} ${todo.content}${reset}\n`;
+
+      output += `${indent}${statusColor}${strikethrough}${checkbox} [${todo.id}] ${todo.content}${reset}\n`;
     });
 
     return output;
   }
 
-  async createTodoList(todos: TodoItem[]): Promise<ToolResult> {
+  async createTodoList(todos: TodoInput[]): Promise<ToolResult> {
     try {
       // Validate todos first
       for (const todo of todos) {
-        if (!todo.id || !todo.content || !todo.status || !todo.priority) {
+        // Generate a unique id if missing
+        todo.id = todo.id ?? randomUUID();
+
+        if (!todo.content || !todo.status || !todo.priority) {
           return {
             success: false,
-            error: 'Each todo must have id, content, status, and priority fields'
+            error: 'Each todo must have content, status, and priority fields'
           };
         }
 
@@ -85,13 +92,14 @@ export class TodoTool extends EventEmitter {
 
       // Build todo list asynchronously so updates can stream in
       for (const todo of todos) {
-        const existingIndex = this.todos.findIndex((t) => t.id === todo.id);
+        const fullTodo = todo as TodoItem;
+        const existingIndex = this.todos.findIndex((t) => t.id === fullTodo.id);
         if (existingIndex !== -1) {
           // Replace existing todo with same id
-          this.todos[existingIndex] = todo;
+          this.todos[existingIndex] = fullTodo;
         } else {
           // Append new todo
-          this.todos.push(todo);
+          this.todos.push(fullTodo);
         }
         this.emit('todo_update', this.formatTodoList());
         // Yield to event loop to allow updates/interruption
