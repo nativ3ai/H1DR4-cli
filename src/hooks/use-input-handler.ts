@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInput } from "ink";
+import { useInput, useStdout, render, Text } from "ink";
 import { H1dr4Agent, ChatEntry } from "../agent/h1dr4-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { useEnhancedInput, Key } from "./use-enhanced-input";
@@ -598,6 +598,8 @@ Respond with ONLY the commit message, no additional text.`;
     return false;
   };
 
+  const { stdout } = useStdout();
+
   const processUserMessage = async (userInput: string) => {
     const userEntry: ChatEntry = {
       type: "user",
@@ -611,29 +613,18 @@ Respond with ONLY the commit message, no additional text.`;
 
     try {
       setIsStreaming(true);
-      let streamingEntry: ChatEntry | null = null;
+      let buffer = "";
+      let streamRenderer: any = null;
 
       for await (const chunk of agent.processUserMessageStream(userInput)) {
         switch (chunk.type) {
           case "content":
             if (chunk.content) {
-              if (!streamingEntry) {
-                const newStreamingEntry = {
-                  type: "assistant" as const,
-                  content: chunk.content,
-                  timestamp: new Date(),
-                  isStreaming: true,
-                };
-                setChatHistory((prev) => [...prev, newStreamingEntry]);
-                streamingEntry = newStreamingEntry;
+              buffer += chunk.content;
+              if (!streamRenderer) {
+                streamRenderer = render(<Text>{chunk.content}</Text>, { stdout });
               } else {
-                setChatHistory((prev) =>
-                  prev.map((entry, idx) =>
-                    idx === prev.length - 1 && entry.isStreaming
-                      ? { ...entry, content: entry.content + chunk.content }
-                      : entry
-                  )
-                );
+                streamRenderer.rerender(<Text>{buffer}</Text>);
               }
             }
             break;
@@ -645,28 +636,26 @@ Respond with ONLY the commit message, no additional text.`;
             break;
 
           case "tool_calls":
+            if (streamRenderer) {
+              streamRenderer.unmount();
+              streamRenderer = null;
+            }
             if (chunk.toolCalls) {
-              // Stop streaming for the current assistant message
-              setChatHistory((prev) =>
-                prev.map((entry) =>
-                  entry.isStreaming
-                    ? {
-                        ...entry,
-                        isStreaming: false,
-                        toolCalls: chunk.toolCalls,
-                      }
-                    : entry
-                )
-              );
-              streamingEntry = null;
+              const assistantEntry: ChatEntry = {
+                type: "assistant",
+                content: buffer,
+                timestamp: new Date(),
+                toolCalls: chunk.toolCalls,
+              };
+              setChatHistory((prev) => [...prev, assistantEntry]);
+              buffer = "";
 
-              // Add individual tool call entries to show tools are being executed
               chunk.toolCalls.forEach((toolCall) => {
                 const toolCallEntry: ChatEntry = {
                   type: "tool_call",
                   content: "Executing...",
                   timestamp: new Date(),
-                  toolCall: toolCall,
+                  toolCall,
                 };
                 setChatHistory((prev) => [...prev, toolCallEntry]);
               });
@@ -676,38 +665,35 @@ Respond with ONLY the commit message, no additional text.`;
           case "tool_result":
             if (chunk.toolCall && chunk.toolResult) {
               setChatHistory((prev) =>
-                prev.map((entry) => {
-                  if (entry.isStreaming) {
-                    return { ...entry, isStreaming: false };
-                  }
-                  // Update the existing tool_call entry with the result
-                  if (
-                    entry.type === "tool_call" &&
-                    entry.toolCall?.id === chunk.toolCall?.id
-                  ) {
-                    return {
-                      ...entry,
-                      type: "tool_result",
-                      content: chunk.toolResult.success
-                        ? chunk.toolResult.output || "Success"
-                        : chunk.toolResult.error || "Error occurred",
-                      toolResult: chunk.toolResult,
-                    };
-                  }
-                  return entry;
-                })
+                prev.map((entry) =>
+                  entry.type === "tool_call" &&
+                  entry.toolCall?.id === chunk.toolCall?.id
+                    ? {
+                        ...entry,
+                        type: "tool_result",
+                        content: chunk.toolResult.success
+                          ? chunk.toolResult.output || "Success"
+                          : chunk.toolResult.error || "Error occurred",
+                        toolResult: chunk.toolResult,
+                      }
+                    : entry
+                )
               );
-              streamingEntry = null;
             }
             break;
 
           case "done":
-            if (streamingEntry) {
-              setChatHistory((prev) =>
-                prev.map((entry) =>
-                  entry.isStreaming ? { ...entry, isStreaming: false } : entry
-                )
-              );
+            if (streamRenderer) {
+              streamRenderer.unmount();
+              streamRenderer = null;
+            }
+            if (buffer) {
+              const finalEntry: ChatEntry = {
+                type: "assistant",
+                content: buffer,
+                timestamp: new Date(),
+              };
+              setChatHistory((prev) => [...prev, finalEntry]);
             }
             setIsStreaming(false);
             break;

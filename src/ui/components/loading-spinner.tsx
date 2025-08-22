@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Text } from "ink";
+import React, { useEffect, useRef } from "react";
+import { Box, Text, render } from "ink";
 import { formatTokenCount } from "../../utils/token-counter";
 import { tokenEventEmitter } from "../../utils/token-events";
 
@@ -25,18 +25,27 @@ const loadingTexts = [
 ];
 
 export function LoadingSpinner({ isActive }: LoadingSpinnerProps) {
-  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
-  const [tokenCount, setTokenCount] = useState(0);
+  const tokenCountRef = useRef(0);
+  const rendererRef = useRef<any>(null);
+  const loadingTextRef = useRef<string>(loadingTexts[0]);
 
-  useEffect(() => {
-    if (isActive) {
-      setLoadingTextIndex(Math.floor(Math.random() * loadingTexts.length));
+  const update = () => {
+    if (rendererRef.current) {
+      rendererRef.current.rerender(
+        <Box marginTop={1}>
+          <Text color="cyan">⏳ {loadingTextRef.current} </Text>
+          <Text color="gray">
+            (↑ {formatTokenCount(tokenCountRef.current)} tokens · esc to interrupt)
+          </Text>
+        </Box>
+      );
     }
-  }, [isActive]);
+  };
 
   useEffect(() => {
     const handler = (count: number) => {
-      setTokenCount(count);
+      tokenCountRef.current = count;
+      update();
     };
     tokenEventEmitter.on("update", handler);
     return () => {
@@ -44,14 +53,27 @@ export function LoadingSpinner({ isActive }: LoadingSpinnerProps) {
     };
   }, []);
 
-  if (!isActive) return null;
+  useEffect(() => {
+    if (isActive) {
+      loadingTextRef.current =
+        loadingTexts[Math.floor(Math.random() * loadingTexts.length)];
+      rendererRef.current = render(
+        <Box marginTop={1}>
+          <Text color="cyan">⏳ {loadingTextRef.current} </Text>
+          <Text color="gray">
+            (↑ {formatTokenCount(tokenCountRef.current)} tokens · esc to interrupt)
+          </Text>
+        </Box>
+      );
+    } else {
+      rendererRef.current?.unmount();
+      rendererRef.current = null;
+    }
+    return () => {
+      rendererRef.current?.unmount();
+      rendererRef.current = null;
+    };
+  }, [isActive]);
 
-  return (
-    <Box marginTop={1}>
-      <Text color="cyan">⏳ {loadingTexts[loadingTextIndex]} </Text>
-      <Text color="gray">
-        (↑ {formatTokenCount(tokenCount)} tokens · esc to interrupt)
-      </Text>
-    </Box>
-  );
+  return null;
 }
