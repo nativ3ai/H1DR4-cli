@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-kit/h1dr4-cli",
+  "name": "@h1dr4/h1dr4-cli",
   "version": "0.0.23",
   "description": "An open-source AI agent that brings the power of H1DR4 directly into your terminal.",
   "main": "dist/index.js",
