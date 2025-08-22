@@ -734,45 +734,35 @@ Current working directory: ${process.cwd()}`,
               priority: "high" as const,
             },
           ];
-          this.todoTool.createTodoList(reasoningTodo).then((result) => {
-            if (!result.success) {
-              const entry: ChatEntry = {
-                type: "assistant",
-                content: result.error || "Error occurred",
-                timestamp: new Date(),
-              };
-              this.addChatEntry(entry);
-              this.messages.push({ role: "assistant", content: entry.content });
-            }
-          });
-
-          // Show a streaming entry while reasoning runs
-          const pendingEntry: ChatEntry = {
-            type: "assistant",
-            content: `Processing: ${args.prompt}`,
-            timestamp: new Date(),
-            isStreaming: true,
-          };
-          this.addChatEntry(pendingEntry);
-
-          // Run reasoning in background so user can continue interacting
-          this.reasoningWorker.analyze(args.prompt).then((result) => {
+          const createResult = await this.todoTool.createTodoList(reasoningTodo);
+          if (!createResult.success) {
             const entry: ChatEntry = {
               type: "assistant",
-              content: result.success
-                ? result.output || "Success"
-                : result.error || "Error occurred",
+              content: createResult.error || "Error occurred",
               timestamp: new Date(),
             };
             this.addChatEntry(entry);
-            // Preserve context for future interactions
             this.messages.push({ role: "assistant", content: entry.content });
-            // Mark reasoning task as completed
-            this.todoTool.updateTodoList([
-              { id: reasoningId, status: "completed" as const },
-            ]);
-          });
-          return { success: true, output: "Reasoning started (async)" };
+          }
+
+          // Wait for reasoning result before responding
+          const reasoningResult = await this.reasoningWorker.analyze(args.prompt);
+
+          const entry: ChatEntry = {
+            type: "assistant",
+            content: reasoningResult.success
+              ? reasoningResult.output || "Success"
+              : reasoningResult.error || "Error occurred",
+            timestamp: new Date(),
+          };
+          this.addChatEntry(entry);
+          this.messages.push({ role: "assistant", content: entry.content });
+
+          await this.todoTool.updateTodoList([
+            { id: reasoningId, status: "completed" as const },
+          ]);
+
+          return reasoningResult;
 
         default:
           // Check if this is an MCP tool
