@@ -57,6 +57,7 @@ export class H1dr4Agent extends EventEmitter {
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private messageQueue: string[] = [];
+  private initialSystemMessage: H1dr4Message;
   private tokenCounter: TokenCounter;
   private abortController: AbortController | null = null;
   private mcpInitialized: boolean = false;
@@ -182,6 +183,7 @@ IMPORTANT RESPONSE GUIDELINES:
 
 Current working directory: ${process.cwd()}`,
     });
+    this.initialSystemMessage = this.messages[0];
   }
 
   private async initializeMCP(): Promise<void> {
@@ -890,6 +892,13 @@ Current working directory: ${process.cwd()}`,
     // Update token counter for new model
     this.tokenCounter.dispose();
     this.tokenCounter = createTokenCounter(model);
+  }
+
+  resetConversation(): void {
+    this.chatHistory = [];
+    this.messages = [this.initialSystemMessage];
+    this.messageQueue = [];
+    this.planManager.reset();
   }
 
   abortCurrentOperation(): void {

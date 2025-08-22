@@ -257,6 +257,9 @@ export function useInputHandler({
       setProcessingTime(0);
       processingStartTime.current = 0;
 
+      // Reset agent conversation and plan
+      agent.resetConversation();
+
       // Reset confirmation service session flags
       const confirmationService = ConfirmationService.getInstance();
       confirmationService.resetSession();

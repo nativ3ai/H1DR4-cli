@@ -41,4 +41,9 @@ export class PlanManager extends EventEmitter {
     this.todos.push(newTodo);
     await this.todoTool.createTodoList([newTodo]);
   }
+
+  reset(): void {
+    this.todos = [];
+    this.todoTool.resetTodoList();
+  }
 }

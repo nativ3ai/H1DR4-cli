@@ -171,6 +171,11 @@ export class TodoTool extends EventEmitter {
     }
   }
 
+  resetTodoList(): void {
+    this.todos = [];
+    this.emit('todo_update', this.formatTodoList());
+  }
+
   async viewTodoList(): Promise<ToolResult> {
     return {
       success: true,
