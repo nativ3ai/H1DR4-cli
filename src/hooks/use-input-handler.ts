@@ -3,6 +3,7 @@ import { useInput } from "ink";
 import { H1dr4Agent, ChatEntry } from "../agent/h1dr4-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { useEnhancedInput, Key } from "./use-enhanced-input";
+import { tokenEventEmitter } from "../utils/token-events";
 
 import { filterCommandSuggestions } from "../ui/components/command-suggestions";
 import { loadModelConfig, updateCurrentModel } from "../utils/model-config";
@@ -13,7 +14,6 @@ interface UseInputHandlerProps {
   setChatHistory: React.Dispatch<React.SetStateAction<ChatEntry[]>>;
   setIsProcessing: (processing: boolean) => void;
   setIsStreaming: (streaming: boolean) => void;
-  setTokenCount: (count: number) => void;
   isProcessing: boolean;
   isStreaming: boolean;
   isConfirmationActive?: boolean;
@@ -34,7 +34,6 @@ export function useInputHandler({
   setChatHistory,
   setIsProcessing,
   setIsStreaming,
-  setTokenCount,
   isProcessing,
   isStreaming,
   isConfirmationActive = false,
@@ -87,7 +86,7 @@ export function useInputHandler({
         agent.abortCurrentOperation();
         setIsProcessing(false);
         setIsStreaming(false);
-        setTokenCount(0);
+        tokenEventEmitter.emit("update", 0);
         return true;
       }
       return false; // Let default escape handling work
@@ -236,7 +235,7 @@ export function useInputHandler({
       // Reset processing states
       setIsProcessing(false);
       setIsStreaming(false);
-      setTokenCount(0);
+      tokenEventEmitter.emit("update", 0);
 
       // Reset confirmation service session flags
       const confirmationService = ConfirmationService.getInstance();
@@ -641,7 +640,7 @@ Respond with ONLY the commit message, no additional text.`;
 
           case "token_count":
             if (chunk.tokenCount !== undefined) {
-              setTokenCount(chunk.tokenCount);
+              tokenEventEmitter.emit("update", chunk.tokenCount);
             }
             break;
 

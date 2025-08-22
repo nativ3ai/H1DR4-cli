@@ -15,6 +15,7 @@ import {
 } from "../../utils/confirmation-service";
 import ApiKeyInput from "./api-key-input";
 import cfonts from "cfonts";
+import { tokenEventEmitter } from "../../utils/token-events";
 
 interface ChatInterfaceProps {
   agent?: H1dr4Agent;
@@ -24,7 +25,6 @@ interface ChatInterfaceProps {
 function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [tokenCount, setTokenCount] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
@@ -48,7 +48,6 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     setChatHistory,
     setIsProcessing,
     setIsStreaming,
-    setTokenCount,
     isProcessing,
     isStreaming,
     isConfirmationActive: !!confirmationOptions,
@@ -107,7 +106,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     // Reset processing states when operation is cancelled
     setIsProcessing(false);
     setIsStreaming(false);
-    setTokenCount(0);
+    tokenEventEmitter.emit("update", 0);
   };
 
   return (
@@ -167,10 +166,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
 
       {!confirmationOptions && (
         <>
-          <LoadingSpinner
-            isActive={isProcessing || isStreaming}
-            tokenCount={tokenCount}
-          />
+          <LoadingSpinner isActive={isProcessing || isStreaming} />
 
           <ChatInput
             input={input}
