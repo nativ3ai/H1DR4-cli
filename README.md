@@ -203,6 +203,10 @@ Or specify a working directory:
 h1dr4 -d /path/to/project
 ```
 
+While the agent is executing tasks, you can continue typing new requests.
+These messages are queued and the active plan is updated on the fly—no need
+to cancel the current run.
+
 ### Headless Mode
 
 Process a single prompt and exit (useful for scripting and automation):

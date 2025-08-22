@@ -179,6 +179,17 @@ export function useInputHandler({
     if (userInput.trim()) {
       const directCommandResult = await handleDirectCommand(userInput);
       if (!directCommandResult) {
+        if (isProcessing || isStreaming) {
+          const queuedEntry: ChatEntry = {
+            type: "user",
+            content: userInput,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, queuedEntry]);
+          agent.enqueueMessage(userInput);
+          clearInput();
+          return;
+        }
         await processUserMessage(userInput);
       }
     }

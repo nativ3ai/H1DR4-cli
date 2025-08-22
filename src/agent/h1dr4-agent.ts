@@ -17,6 +17,7 @@ import {
   OSINTTool,
   ReasoningWorker,
 } from "../tools";
+import { PlanManager } from "./plan-manager";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
@@ -48,12 +49,14 @@ export class H1dr4Agent extends EventEmitter {
   private morphEditor: MorphEditorTool | null;
   private bash: BashTool;
   private todoTool: TodoTool;
+  private planManager: PlanManager;
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
   private osint: OSINTTool;
   private reasoningWorker: ReasoningWorker;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
+  private messageQueue: string[] = [];
   private tokenCounter: TokenCounter;
   private abortController: AbortController | null = null;
   private mcpInitialized: boolean = false;
@@ -75,7 +78,8 @@ export class H1dr4Agent extends EventEmitter {
     this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
-    this.todoTool.on('todo_update', (output: string) => {
+    this.planManager = new PlanManager(this.todoTool);
+    this.planManager.on('plan_update', (output: string) => {
       const entry: ChatEntry = {
         type: 'assistant',
         content: output,
@@ -84,6 +88,7 @@ export class H1dr4Agent extends EventEmitter {
       this.addChatEntry(entry);
       // Preserve context for future interactions
       this.messages.push({ role: 'assistant', content: output });
+      this.emit('plan_update', output);
     });
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
@@ -203,6 +208,20 @@ Current working directory: ${process.cwd()}`,
   private isH1dr4Model(): boolean {
     const currentModel = this.h1dr4Client.getCurrentModel();
     return currentModel.toLowerCase().includes("h1dr4");
+  }
+
+  enqueueMessage(message: string): void {
+    this.messageQueue.push(message);
+    this.messages.push({ role: "user", content: message });
+  }
+
+  private async drainMessageQueue(): Promise<void> {
+    while (this.messageQueue.length > 0) {
+      const msg = this.messageQueue.shift();
+      if (msg) {
+        await this.planManager.updateFromMessage(msg);
+      }
+    }
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
@@ -437,6 +456,9 @@ Current working directory: ${process.cwd()}`,
           return;
         }
 
+        // Handle any queued user messages before continuing
+        await this.drainMessageQueue();
+
         // Stream response and accumulate
         const tools = await getAllH1dr4Tools();
         const stream = this.h1dr4Client.chatStream(
@@ -460,6 +482,10 @@ Current working directory: ${process.cwd()}`,
             };
             yield { type: "done" };
             return;
+          }
+
+          if (this.messageQueue.length > 0) {
+            await this.drainMessageQueue();
           }
 
           if (!chunk.choices?.[0]) continue;
@@ -549,6 +575,10 @@ Current working directory: ${process.cwd()}`,
               return;
             }
 
+            if (this.messageQueue.length > 0) {
+              await this.drainMessageQueue();
+            }
+
             const result = await this.executeTool(toolCall);
 
             const toolResultEntry: ChatEntry = {
@@ -576,6 +606,10 @@ Current working directory: ${process.cwd()}`,
                 : result.error || "Error",
               tool_call_id: toolCall.id,
             });
+
+            if (this.messageQueue.length > 0) {
+              await this.drainMessageQueue();
+            }
           }
 
           // Update token count after processing all tool calls to include tool results
