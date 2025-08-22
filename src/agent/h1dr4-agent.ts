@@ -52,18 +52,9 @@ export class H1dr4Agent extends EventEmitter {
   private search: SearchTool;
   private osint: OSINTTool;
   private reasoningWorker: ReasoningWorker;
-  private reasoningPatterns: RegExp[] = [
-    /polymarket|prediction market|betting|odds|market|poll|vote/i,
-    /predict|election|politics|president|congress|government|policy/i,
-    /news|latest|breaking|current|update|happening/i,
-    /crypto|bitcoin|stock|price|trading|volume|market/i,
-    /remember|previous|before|history|past|tracking/i,
-    /search|find|look up|investigate|research/i,
-    /analyze|full|complete|everything|all data|comprehensive/i,
-    /osint|intelligence|leak|investigation|surveillance|spy|secret|classified|breach|hack/i,
-    /blockchain|crypto|ethereum|transaction|wallet|defi|smart contract|address|hash/i,
-    /economic|federal|reserve|interest|inflation|monetary|finance|gdp|unemployment|fed/i,
-  ];
+  private reasoningVerbPattern: RegExp = /(analyz(?:e|ing|is)|assess|evaluate|impact|implications|predict|forecast|projection|simulate|simulation|estimate|likelihood|probability|scenario|outlook|risk|trend|monte\s*carlo)/i;
+  private reasoningDomainPattern: RegExp = /(market|stock|crypto|bitcoin|ethereum|price|trading|economy|economic|federal|reserve|interest|inflation|monetary|finance|gdp|unemployment|regulation|policy|adoption|technology|ai|cybersecurity|blockchain)/i;
+  private osintPattern: RegExp = /(osint|leak|data leak|breach|breaches|dump|password|credential|exposed|database|hacked|hack|breached|intel|intelligence|surveillance|spy|secret|classified|investigation|dark web)/i;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -191,7 +182,14 @@ Current working directory: ${process.cwd()}`,
   }
 
   private shouldOfferReasoning(message: string): boolean {
-    return this.reasoningPatterns.some((r) => r.test(message));
+    return (
+      this.reasoningVerbPattern.test(message) &&
+      this.reasoningDomainPattern.test(message)
+    );
+  }
+
+  private shouldUseOsint(message: string): boolean {
+    return this.osintPattern.test(message);
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
@@ -205,6 +203,25 @@ Current working directory: ${process.cwd()}`,
     this.messages.push({ role: "user", content: message });
 
     const newEntries: ChatEntry[] = [userEntry];
+
+    if (this.shouldUseOsint(message)) {
+      const osintResult = await this.osint.search(message);
+      const assistantEntry: ChatEntry = {
+        type: "assistant",
+        content: osintResult.success
+          ? osintResult.output || ""
+          : osintResult.error || "",
+        timestamp: new Date(),
+      };
+      this.chatHistory.push(assistantEntry);
+      this.messages.push({
+        role: "assistant",
+        content: assistantEntry.content,
+      });
+      newEntries.push(assistantEntry);
+      return newEntries;
+    }
+
     if (this.shouldOfferReasoning(message)) {
       const confirmation = await this.confirmationTool.requestConfirmation({
         operation: "Use reasoning tool",
