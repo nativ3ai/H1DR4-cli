@@ -708,34 +708,10 @@ Current working directory: ${process.cwd()}`,
           return await this.bash.execute(args.command);
 
         case "create_todo_list":
-          // Run todo list creation in the background
-          this.todoTool.createTodoList(args.todos).then((result) => {
-            if (!result.success) {
-              const entry: ChatEntry = {
-                type: "assistant",
-                content: result.error || "Error occurred",
-                timestamp: new Date(),
-              };
-              this.addChatEntry(entry);
-              this.messages.push({ role: "assistant", content: entry.content });
-            }
-          });
-          return { success: true, output: "Planning started (async)" };
+          return await this.todoTool.createTodoList(args.todos);
 
         case "update_todo_list":
-          // Run todo list updates in the background
-          this.todoTool.updateTodoList(args.updates).then((result) => {
-            if (!result.success) {
-              const entry: ChatEntry = {
-                type: "assistant",
-                content: result.error || "Error occurred",
-                timestamp: new Date(),
-              };
-              this.addChatEntry(entry);
-              this.messages.push({ role: "assistant", content: entry.content });
-            }
-          });
-          return { success: true, output: "Todo list update started (async)" };
+          return await this.todoTool.updateTodoList(args.updates);
 
         case "search":
           return await this.search.search(args.query, {
