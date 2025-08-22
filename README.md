@@ -6,7 +6,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 
 ## Features
 
-- **🤖 Conversational AI**: Natural language interface powered by H1DR4-3
+- **🤖 Conversational AI**: Natural language interface powered by H1DR4
 - **📝 Smart File Operations**: AI automatically uses tools to view, create, and edit files
 - **⚡ Bash Integration**: Execute shell commands through natural conversation
 - **🔧 Automatic Tool Selection**: AI intelligently chooses the right tools for your requests
@@ -15,6 +15,9 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
+- While the agent is executing tasks, you can continue typing new requests.
+These messages are queued and the active plan is updated on the fly—no need
+to cancel the current run.
 - **🌍 Global Installation**: Install and use anywhere with `npm i -g @vibe-kit/h1dr4-cli`
 
 ## Installation
@@ -81,6 +84,11 @@ export MORPH_API_KEY=your_morph_api_key_here
 ```bash
 # Add to your .env file
 MORPH_API_KEY=your_morph_api_key_here
+```
+
+5. Set your H1dr4 OSINT token:
+```bash
+export OSINT_TOKEN=your-h1dr4_osint-token
 ```
 
 ### Custom Base URL (Optional)
@@ -170,7 +178,7 @@ This means you can have different models for different projects while maintainin
 **Important**: H1DR4 CLI uses **OpenAI-compatible APIs**. You can use any provider that implements the OpenAI chat completions standard.
 
 **Popular Providers**:
-- **X.AI (H1DR4)**: `https://api.x.ai/v1` (default)
+- **X.AI**: `https://api.x.ai/v1` (default)
 - **OpenAI**: `https://api.openai.com/v1`
 - **OpenRouter**: `https://openrouter.ai/api/v1`
 - **Groq**: `https://api.groq.com/openai/v1`
