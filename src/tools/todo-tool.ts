@@ -84,9 +84,15 @@ export class TodoTool extends EventEmitter {
       }
 
       // Build todo list asynchronously so updates can stream in
-      this.todos = [];
       for (const todo of todos) {
-        this.todos.push(todo);
+        const existingIndex = this.todos.findIndex((t) => t.id === todo.id);
+        if (existingIndex !== -1) {
+          // Replace existing todo with same id
+          this.todos[existingIndex] = todo;
+        } else {
+          // Append new todo
+          this.todos.push(todo);
+        }
         this.emit('todo_update', this.formatTodoList());
         // Yield to event loop to allow updates/interruption
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -107,15 +113,14 @@ export class TodoTool extends EventEmitter {
   async updateTodoList(updates: { id: string; status?: string; content?: string; priority?: string }[]): Promise<ToolResult> {
     try {
       const updatedIds: string[] = [];
+      const missingIds: string[] = [];
 
       for (const update of updates) {
         const todoIndex = this.todos.findIndex((t) => t.id === update.id);
 
         if (todoIndex === -1) {
-          return {
-            success: false,
-            error: `Todo with id ${update.id} not found`
-          };
+          missingIds.push(update.id);
+          continue;
         }
 
         const todo = this.todos[todoIndex];
@@ -145,7 +150,10 @@ export class TodoTool extends EventEmitter {
 
       return {
         success: true,
-        output: this.formatTodoList()
+        output: this.formatTodoList(),
+        ...(missingIds.length > 0
+          ? { error: `Todos not found: ${missingIds.join(', ')}` }
+          : {})
       };
     } catch (error) {
       return {

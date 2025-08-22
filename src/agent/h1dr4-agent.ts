@@ -724,7 +724,7 @@ Current working directory: ${process.cwd()}`,
           if (!confirmation.success) {
             return { success: false, error: "Reasoning operation rejected by user" };
           }
-          // Replace current plan with a single reasoning task
+          // Add a reasoning task to the current plan
           const reasoningId = `reason-${Date.now()}`;
           const reasoningTodo = [
             {
