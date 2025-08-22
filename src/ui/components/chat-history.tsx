@@ -1,6 +1,5 @@
 import React from "react";
-import { Box, Text } from "ink";
-import Spinner from "ink-spinner";
+import { Box, Text, Static } from "ink";
 import { ChatEntry } from "../../agent/h1dr4-agent";
 import { DiffRenderer } from "./diff-renderer";
 import { MarkdownRenderer } from "../utils/markdown-renderer";
@@ -73,11 +72,7 @@ const MemoizedChatEntry = React.memo(
                   // If no tool calls, render as markdown
                   <MarkdownRenderer content={entry.content.trim()} />
                 )}
-                {entry.isStreaming && (
-                  <Text color="cyan">
-                    <Spinner type="dots" />
-                  </Text>
-                )}
+                {entry.isStreaming && <Text color="cyan">…</Text>}
               </Box>
             </Box>
           </Box>
@@ -224,15 +219,28 @@ export function ChatHistory({
       )
     : entries;
 
+  const recentEntries = filteredEntries.slice(-20);
+  const doneEntries = recentEntries.slice(0, -1);
+  const currentEntry = recentEntries[recentEntries.length - 1];
+
   return (
     <Box flexDirection="column">
-      {filteredEntries.slice(-20).map((entry, index) => (
+      <Static items={doneEntries}>
+        {(entry, index) => (
+          <MemoizedChatEntry
+            key={entry.timestamp.getTime()}
+            entry={entry}
+            index={index}
+          />
+        )}
+      </Static>
+      {currentEntry && (
         <MemoizedChatEntry
-          key={`${entry.timestamp.getTime()}-${index}`}
-          entry={entry}
-          index={index}
+          key={currentEntry.timestamp.getTime()}
+          entry={currentEntry}
+          index={doneEntries.length}
         />
-      ))}
+      )}
     </Box>
   );
 }

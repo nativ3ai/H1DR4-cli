@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
-import Spinner from "ink-spinner";
 import { formatTokenCount } from "../../utils/token-counter";
 
 interface LoadingSpinnerProps {
@@ -43,12 +42,9 @@ export function LoadingSpinner({
 
   return (
     <Box marginTop={1}>
-      <Text color="cyan">
-        <Spinner type="dots" /> {loadingTexts[loadingTextIndex]}{" "}
-      </Text>
+      <Text color="cyan">⏳ {loadingTexts[loadingTextIndex]} </Text>
       <Text color="gray">
-        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens · esc to
-        interrupt)
+        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens · esc to interrupt)
       </Text>
     </Box>
   );
