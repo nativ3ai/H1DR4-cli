@@ -14,8 +14,6 @@ interface UseInputHandlerProps {
   setIsProcessing: (processing: boolean) => void;
   setIsStreaming: (streaming: boolean) => void;
   setTokenCount: (count: number) => void;
-  setProcessingTime: (time: number) => void;
-  processingStartTime: React.MutableRefObject<number>;
   isProcessing: boolean;
   isStreaming: boolean;
   isConfirmationActive?: boolean;
@@ -37,8 +35,6 @@ export function useInputHandler({
   setIsProcessing,
   setIsStreaming,
   setTokenCount,
-  setProcessingTime,
-  processingStartTime,
   isProcessing,
   isStreaming,
   isConfirmationActive = false,
@@ -92,8 +88,6 @@ export function useInputHandler({
         setIsProcessing(false);
         setIsStreaming(false);
         setTokenCount(0);
-        setProcessingTime(0);
-        processingStartTime.current = 0;
         return true;
       }
       return false; // Let default escape handling work
@@ -243,8 +237,6 @@ export function useInputHandler({
       setIsProcessing(false);
       setIsStreaming(false);
       setTokenCount(0);
-      setProcessingTime(0);
-      processingStartTime.current = 0;
 
       // Reset confirmation service session flags
       const confirmationService = ConfirmationService.getInstance();
@@ -733,7 +725,6 @@ Respond with ONLY the commit message, no additional text.`;
     }
 
     setIsProcessing(false);
-    processingStartTime.current = 0;
   };
 
 

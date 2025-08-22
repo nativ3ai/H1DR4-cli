@@ -4,7 +4,6 @@ import { formatTokenCount } from "../../utils/token-counter";
 
 interface LoadingSpinnerProps {
   isActive: boolean;
-  processingTime: number;
   tokenCount: number;
 }
 
@@ -27,7 +26,6 @@ const loadingTexts = [
 
 export function LoadingSpinner({
   isActive,
-  processingTime,
   tokenCount,
 }: LoadingSpinnerProps) {
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
@@ -44,7 +42,7 @@ export function LoadingSpinner({
     <Box marginTop={1}>
       <Text color="cyan">⏳ {loadingTexts[loadingTextIndex]} </Text>
       <Text color="gray">
-        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens · esc to interrupt)
+        (↑ {formatTokenCount(tokenCount)} tokens · esc to interrupt)
       </Text>
     </Box>
   );

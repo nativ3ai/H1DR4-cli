@@ -24,13 +24,11 @@ interface ChatInterfaceProps {
 function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingTime, setProcessingTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
   const scrollRef = useRef<any>();
-  const processingStartTime = useRef<number>(0);
 
   const confirmationService = ConfirmationService.getInstance();
 
@@ -51,8 +49,6 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     setIsProcessing,
     setIsStreaming,
     setTokenCount,
-    setProcessingTime,
-    processingStartTime,
     isProcessing,
     isStreaming,
     isConfirmationActive: !!confirmationOptions,
@@ -98,24 +94,6 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     };
   }, [confirmationService]);
 
-  useEffect(() => {
-    if (!isProcessing && !isStreaming) {
-      setProcessingTime(0);
-      return;
-    }
-
-    if (processingStartTime.current === 0) {
-      processingStartTime.current = Date.now();
-    }
-
-    const interval = setInterval(() => {
-      setProcessingTime(
-        Math.floor((Date.now() - processingStartTime.current) / 1000)
-      );
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isProcessing, isStreaming]);
 
   const handleConfirmation = (dontAskAgain?: boolean) => {
     confirmationService.confirmOperation(true, dontAskAgain);
@@ -130,8 +108,6 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     setIsProcessing(false);
     setIsStreaming(false);
     setTokenCount(0);
-    setProcessingTime(0);
-    processingStartTime.current = 0;
   };
 
   return (
@@ -193,7 +169,6 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
         <>
           <LoadingSpinner
             isActive={isProcessing || isStreaming}
-            processingTime={processingTime}
             tokenCount={tokenCount}
           />
 
