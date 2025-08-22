@@ -75,6 +75,16 @@ export class H1dr4Agent extends EventEmitter {
     this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
+    this.todoTool.on('todo_update', (output: string) => {
+      const entry: ChatEntry = {
+        type: 'assistant',
+        content: output,
+        timestamp: new Date(),
+      };
+      this.addChatEntry(entry);
+      // Preserve context for future interactions
+      this.messages.push({ role: 'assistant', content: output });
+    });
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
@@ -108,17 +118,19 @@ You have access to these tools:
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
+- live_search: Search real-time web, news, and X posts using Grok's live search
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
- REASONING WORKER BEST PRACTICES:
- - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning
- - Effective queries are comprehensive, provide context, and specify timeframes
- - Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
- - Ineffective queries are vague, lack context, or are single words
+REASONING WORKER BEST PRACTICES:
+ - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, or complex synthesis of multiple news sources
+- Effective queries are comprehensive, provide context, and specify timeframes
+- Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
+- Ineffective queries are vague, lack context, or are single words
 
- REAL-TIME INFORMATION:
- You can call built-in real-time web search and X (Twitter) tools to retrieve up-to-the-minute information.
- Use these when users request current events, breaking news, or recent data.
+REAL-TIME INFORMATION:
+ Use the live_search tool to query real-time web, news, and X (Twitter) data via Grok's live search.
+ Provide descriptive queries; mode defaults to auto and all sources are searched unless you specify otherwise.
+ Prefer live_search for current events, social media mentions, or up-to-the-minute data instead of the reasoning tool.
  This capability is independent from the reasoning worker and does not require user confirmation.
 
  IMPORTANT TOOL USAGE RULES:
@@ -181,6 +193,11 @@ Current working directory: ${process.cwd()}`,
         this.mcpInitialized = true;
       }
     });
+  }
+
+  private addChatEntry(entry: ChatEntry): void {
+    this.chatHistory.push(entry);
+    this.emit("chat_entry", entry);
   }
 
   private isH1dr4Model(): boolean {
@@ -655,10 +672,34 @@ Current working directory: ${process.cwd()}`,
           return await this.bash.execute(args.command);
 
         case "create_todo_list":
-          return await this.todoTool.createTodoList(args.todos);
+          // Run todo list creation in the background
+          this.todoTool.createTodoList(args.todos).then((result) => {
+            if (!result.success) {
+              const entry: ChatEntry = {
+                type: "assistant",
+                content: result.error || "Error occurred",
+                timestamp: new Date(),
+              };
+              this.addChatEntry(entry);
+              this.messages.push({ role: "assistant", content: entry.content });
+            }
+          });
+          return { success: true, output: "Planning started (async)" };
 
         case "update_todo_list":
-          return await this.todoTool.updateTodoList(args.updates);
+          // Run todo list updates in the background
+          this.todoTool.updateTodoList(args.updates).then((result) => {
+            if (!result.success) {
+              const entry: ChatEntry = {
+                type: "assistant",
+                content: result.error || "Error occurred",
+                timestamp: new Date(),
+              };
+              this.addChatEntry(entry);
+              this.messages.push({ role: "assistant", content: entry.content });
+            }
+          });
+          return { success: true, output: "Todo list update started (async)" };
 
         case "search":
           return await this.search.search(args.query, {
@@ -676,6 +717,18 @@ Current working directory: ${process.cwd()}`,
         case "osint_search":
           return await this.osint.search(args.query);
 
+        case "live_search":
+          const searchResponse = await this.h1dr4Client.search(
+            args.query,
+            args.search_parameters
+          );
+          return {
+            success: true,
+            output:
+              searchResponse.choices[0]?.message?.content ||
+              "No results returned",
+          };
+
         case "reason":
           const confirmation = await this.confirmationTool.requestConfirmation({
             operation: "Use reasoning tool",
@@ -685,7 +738,45 @@ Current working directory: ${process.cwd()}`,
           if (!confirmation.success) {
             return { success: false, error: "Reasoning operation rejected by user" };
           }
-          return await this.reasoningWorker.analyze(args.prompt);
+          // Add a reasoning task to the current plan
+          const reasoningId = `reason-${Date.now()}`;
+          const reasoningTodo = [
+            {
+              id: reasoningId,
+              content: args.prompt as string,
+              status: "in_progress" as const,
+              priority: "high" as const,
+            },
+          ];
+          const createResult = await this.todoTool.createTodoList(reasoningTodo);
+          if (!createResult.success) {
+            const entry: ChatEntry = {
+              type: "assistant",
+              content: createResult.error || "Error occurred",
+              timestamp: new Date(),
+            };
+            this.addChatEntry(entry);
+            this.messages.push({ role: "assistant", content: entry.content });
+          }
+
+          // Wait for reasoning result before responding
+          const reasoningResult = await this.reasoningWorker.analyze(args.prompt);
+
+          const entry: ChatEntry = {
+            type: "assistant",
+            content: reasoningResult.success
+              ? reasoningResult.output || "Success"
+              : reasoningResult.error || "Error occurred",
+            timestamp: new Date(),
+          };
+          this.addChatEntry(entry);
+          this.messages.push({ role: "assistant", content: entry.content });
+
+          await this.todoTool.updateTodoList([
+            { id: reasoningId, status: "completed" as const },
+          ]);
+
+          return reasoningResult;
 
         default:
           // Check if this is an MCP tool

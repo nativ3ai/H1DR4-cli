@@ -1,4 +1,6 @@
 import { ToolResult } from '../types';
+import { EventEmitter } from 'events';
+import { randomUUID } from 'crypto';
 
 interface TodoItem {
   id: string;
@@ -7,7 +9,10 @@ interface TodoItem {
   priority: 'high' | 'medium' | 'low';
 }
 
-export class TodoTool {
+// Input type allows id to be omitted so the tool can generate one
+type TodoInput = Omit<TodoItem, 'id'> & { id?: string };
+
+export class TodoTool extends EventEmitter {
   private todos: TodoItem[] = [];
 
   formatTodoList(): string {
@@ -49,21 +54,24 @@ export class TodoTool {
       const statusColor = getStatusColor(todo.status);
       const strikethrough = todo.status === 'completed' ? '\x1b[9m' : '';
       const indent = index === 0 ? '' : '  ';
-      
-      output += `${indent}${statusColor}${strikethrough}${checkbox} ${todo.content}${reset}\n`;
+
+      output += `${indent}${statusColor}${strikethrough}${checkbox} [${todo.id}] ${todo.content}${reset}\n`;
     });
 
     return output;
   }
 
-  async createTodoList(todos: TodoItem[]): Promise<ToolResult> {
+  async createTodoList(todos: TodoInput[]): Promise<ToolResult> {
     try {
-      // Validate todos
+      // Validate todos first
       for (const todo of todos) {
-        if (!todo.id || !todo.content || !todo.status || !todo.priority) {
+        // Generate a unique id if missing
+        todo.id = todo.id ?? randomUUID();
+
+        if (!todo.content || !todo.status || !todo.priority) {
           return {
             success: false,
-            error: 'Each todo must have id, content, status, and priority fields'
+            error: 'Each todo must have content, status, and priority fields'
           };
         }
 
@@ -82,8 +90,22 @@ export class TodoTool {
         }
       }
 
-      this.todos = todos;
-      
+      // Build todo list asynchronously so updates can stream in
+      for (const todo of todos) {
+        const fullTodo = todo as TodoItem;
+        const existingIndex = this.todos.findIndex((t) => t.id === fullTodo.id);
+        if (existingIndex !== -1) {
+          // Replace existing todo with same id
+          this.todos[existingIndex] = fullTodo;
+        } else {
+          // Append new todo
+          this.todos.push(fullTodo);
+        }
+        this.emit('todo_update', this.formatTodoList());
+        // Yield to event loop to allow updates/interruption
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
       return {
         success: true,
         output: this.formatTodoList()
@@ -99,15 +121,14 @@ export class TodoTool {
   async updateTodoList(updates: { id: string; status?: string; content?: string; priority?: string }[]): Promise<ToolResult> {
     try {
       const updatedIds: string[] = [];
+      const missingIds: string[] = [];
 
       for (const update of updates) {
-        const todoIndex = this.todos.findIndex(t => t.id === update.id);
-        
+        const todoIndex = this.todos.findIndex((t) => t.id === update.id);
+
         if (todoIndex === -1) {
-          return {
-            success: false,
-            error: `Todo with id ${update.id} not found`
-          };
+          missingIds.push(update.id);
+          continue;
         }
 
         const todo = this.todos[todoIndex];
@@ -133,9 +154,14 @@ export class TodoTool {
         updatedIds.push(update.id);
       }
 
+      this.emit('todo_update', this.formatTodoList());
+
       return {
         success: true,
-        output: this.formatTodoList()
+        output: this.formatTodoList(),
+        ...(missingIds.length > 0
+          ? { error: `Todos not found: ${missingIds.join(', ')}` }
+          : {})
       };
     } catch (error) {
       return {
