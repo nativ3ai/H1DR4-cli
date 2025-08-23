@@ -2,7 +2,7 @@
 
 A conversational AI CLI tool powered by H1DR4 with intelligent text editor capabilities and tool usage.
 
-<img width="980" height="435" alt="H1DR4 CLI terminal screenshot" src="./saver.png" />
+<img width="980" height="705" alt="H1DR4 CLI terminal screenshot" src="./saver.png" />
 
 ## Features
 
@@ -63,6 +63,8 @@ h1dr4 --api-key your_api_key_here
 ### (Optional, Recommended)
 
 **Set your H1DR4 OSINT token**
+
+<img width="980" height="570" alt="H1DR4 terminal screenshot" src="./osint_token.png" />
 
 -> get one either at:
 [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
