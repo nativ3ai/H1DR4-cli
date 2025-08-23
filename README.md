@@ -32,6 +32,8 @@ to cancel the current run.
 npm install -g @h1dr4/h1dr4-cli
 ```
 
+or
+
 ### Local Development
 ```bash
 git clone https://github.com/nativ3ai/H1DR4-cli.git
@@ -62,10 +64,8 @@ h1dr4 --api-key your_api_key_here
 ```bash
 h1dr4
 ```
-**To close siply hold:**
-```bash
-ctrl+c
-```
+Check Usage details below ;)
+
 
 **(Optional, Recommended)**
 
