@@ -47,30 +47,18 @@ npm link
 
 **2. Set up your API key (choose one method):**
 
-Method 1: Environment Variable
+Set it as Environment Variable with:
+
 ```bash
 export GROK_API_KEY=your_api_key_here
 ```
+or 
 
-Method 2: .env File
-```bash
-cp .env.example .env
-# Edit .env and add your API key
-```
-
-Method 3: Command Line Flag
 ```bash
 h1dr4 --api-key your_api_key_here
 ```
 
-Method 4: User Settings File
-Create `~/.h1dr4/user-settings.json`:
-```json
-{
-  "apiKey": "your_api_key_here"
-}
-```
-**Start H1DR4:**
+**3. Start H1DR4:**
 ```bash
 h1dr4
 ```
