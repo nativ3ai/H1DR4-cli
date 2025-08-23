@@ -69,7 +69,7 @@ Check Usage details below ;)
 
 **(Optional, Recommended)**
 
-- Set your H1DR4 OSINT token -> get one at htttps://t.me/osintbotbot (siply click: menu -> api) or throught [H1DR4](https://h1dr4.dev/terminal) -> type "token":
+- Set your H1DR4 OSINT token -> get one at [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api or throught [H1DR4](https://h1dr4.dev/terminal) -> type "token":
 
 Environment Variable
 ```bash
