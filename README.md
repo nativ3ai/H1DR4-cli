@@ -82,15 +82,12 @@ h1dr4 --api-key your_api_key_here
 
 *Note*: The CLI will work with just the Grok API Key, but adding the OSINT Access Token unlocks additional features and improves the overall experience.
 
-If you also want to enable OSINT features you’ll need to set your OSINT_TOKEN too before running the interface:
-
 -> get one either at:
 [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
 
 or throught 
 
-[H1DR4](https://h1dr4.dev/terminal) -> type "balance" [*DISCLAMER* You must hold 500k+ $H1DR4 or have 100k $H1DR4 staked, YOU WILL ALSO FIND A RATE LIMITED GROK API]:
-
+[H1DR4](https://h1dr4.dev/terminal)
 <img width="980" height="570" alt="H1DR4 terminal screenshot" src="./osint_token.png" />
 
 **Environment Variable**
@@ -99,6 +96,7 @@ export OSINT_TOKEN=your-h1dr4_osint-token
 ```
 
 ### Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)
+*Note*: For the best coding experience Morph is recomended
 
 **Set up your Morph API key for Fast Apply editing (choose one method):**
 
