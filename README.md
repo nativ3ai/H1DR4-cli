@@ -66,8 +66,10 @@ h1dr4 --api-key your_api_key_here
 
 -> get one either at:
 [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
+
 or throught 
-[H1DR4](https://h1dr4.dev/terminal) -> type "token":
+
+[H1DR4](https://h1dr4.dev/terminal) -> type "balance" [*DISCLAMER* You must hold 500k+ $H1DR4 or have 100k $H1DR4 staked]:
 
 Environment Variable
 ```bash
