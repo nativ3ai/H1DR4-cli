@@ -45,15 +45,27 @@ npm link
 
 ## Setup
 
-### 1. Get your Grok API key
+## Setup
 
-Chose from:
-[X.AI](https://x.ai) 
-or 
-[H1DR4](h1dr4.dev) [*DISCLAMER* GROK API key and OSINT token through H1DR4.dev -> Requires holding 500k+ $H1DR4 (Just hold, no spend)]
+### 1. Get your credentials
 
+You will need **a Grok API Key** (required) and optionally an **OSINT Access Token** (recommended for best experience).  
 
-**2. Set up your API key (choose one method):**
+There are **two ways** to get a Grok API Key:
+
+1. **Use your own** → [X.AI](https://x.ai) lets you create your own Grok API token and set your own usage limits.  
+2. **Use [H1DR4](h1dr4.dev)** → If you **hold ≥500k $H1DR4** or **stake ≥100k $H1DR4**, you can claim both:  
+   - A **rate-limited Grok API Key**  
+   - An **OSINT Access Token**  
+
+👉 To claim via H1DR4.dev/terminal, run (through the website):
+
+```bash
+balance
+```
+This will display your tokens directly.
+
+**2. Set up your grok API key (choose one method):**
 
 Set it as Environment Variable with:
 
@@ -68,9 +80,9 @@ h1dr4 --api-key your_api_key_here
 
 ### (Optional, Recommended)
 
-**Set your H1DR4 credentials**
+*Note*: The CLI will work with just the Grok API Key, but adding the OSINT Access Token unlocks additional features and improves the overall experience.
 
-OSINT ACCESS TOKEN:
+If you also want to enable OSINT features you’ll need to set your OSINT_TOKEN too before running the interface:
 
 -> get one either at:
 [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
