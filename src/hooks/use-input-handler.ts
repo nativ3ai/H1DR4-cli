@@ -179,6 +179,17 @@ export function useInputHandler({
     if (userInput.trim()) {
       const directCommandResult = await handleDirectCommand(userInput);
       if (!directCommandResult) {
+        if (isProcessing || isStreaming) {
+          const queuedEntry: ChatEntry = {
+            type: "user",
+            content: userInput,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, queuedEntry]);
+          agent.enqueueMessage(userInput);
+          clearInput();
+          return;
+        }
         await processUserMessage(userInput);
       }
     }
@@ -245,6 +256,9 @@ export function useInputHandler({
       setTokenCount(0);
       setProcessingTime(0);
       processingStartTime.current = 0;
+
+      // Reset agent conversation and plan
+      agent.resetConversation();
 
       // Reset confirmation service session flags
       const confirmationService = ConfirmationService.getInstance();
