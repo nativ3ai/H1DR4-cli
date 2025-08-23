@@ -74,9 +74,9 @@ Environment Variable
 export OSINT_TOKEN=your-h1dr4_osint-token
 ```
 
-- Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)**
+**Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)**
 
-- Set up your Morph API key for Fast Apply editing (choose one method):
+**Set up your Morph API key for Fast Apply editing (choose one method):**
 
 Environment Variable
 ```bash
