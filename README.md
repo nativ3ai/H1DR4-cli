@@ -51,6 +51,8 @@ Chose from:
 [X.AI](https://x.ai) 
 or 
 [H1DR4](h1dr4.dev) [*DISCLAMER* GROK API key and OSINT token through H1DR4.dev -> Requires holding 500k+ $H1DR4 (Just hold, no spend)]
+
+
 **2. Set up your API key (choose one method):**
 
 Set it as Environment Variable with:
