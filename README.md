@@ -45,7 +45,12 @@ npm link
 
 ## Setup
 
-**1. Get your Grok API key from [X.AI](https://x.ai)**
+### 1. Get your Grok API key
+
+Chose from:
+[X.AI](https://x.ai) 
+or 
+[H1DR4](h1dr4.dev) -> Requires holding 500k+ $H1DR4 (Just hold, no spend)
 
 **2. Set up your API key (choose one method):**
 
@@ -62,14 +67,16 @@ h1dr4 --api-key your_api_key_here
 
 ### (Optional, Recommended)
 
-**Set your H1DR4 OSINT token**
+**Set your H1DR4 credentials**
+
+OSINT ACCESS TOKEN:
 
 -> get one either at:
 [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
 
 or throught 
 
-[H1DR4](https://h1dr4.dev/terminal) -> type "balance" [*DISCLAMER* You must hold 500k+ $H1DR4 or have 100k $H1DR4 staked]:
+[H1DR4](https://h1dr4.dev/terminal) -> type "balance" [*DISCLAMER* You must hold 500k+ $H1DR4 or have 100k $H1DR4 staked, YOU WILL ALSO FIND A RATE LIMITED GROK API]:
 
 <img width="980" height="570" alt="H1DR4 terminal screenshot" src="./osint_token.png" />
 
