@@ -60,7 +60,7 @@ or
 h1dr4 --api-key your_api_key_here
 ```
 
-**(Optional, Recommended)**
+### (Optional, Recommended)
 
 - Set your H1DR4 OSINT token -> get one at [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api or throught [H1DR4](https://h1dr4.dev/terminal) -> type "token":
 
