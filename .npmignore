@@ -1,4 +1,4 @@
-# Source files (only include built dist/)
+# Source files (do not modify if you dont know what u are doing... only include built dist/)
 src/
 tsconfig.json
 
