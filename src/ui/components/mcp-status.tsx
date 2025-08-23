@@ -10,30 +10,28 @@ export function MCPStatus({}: MCPStatusProps) {
   const [availableTools, setAvailableTools] = useState<MCPTool[]>([]);
 
   useEffect(() => {
+    const manager = getMCPManager();
+
     const updateStatus = () => {
       try {
-        const manager = getMCPManager();
-        const servers = manager.getServers();
-        const tools = manager.getTools();
-
-        setConnectedServers(servers);
-        setAvailableTools(tools);
-      } catch (error) {
-        // MCP manager not initialized yet
+        setConnectedServers(manager.getServers());
+        setAvailableTools(manager.getTools());
+      } catch {
         setConnectedServers([]);
         setAvailableTools([]);
       }
     };
 
-    // Initial update with a small delay to allow MCP initialization
-    const initialTimer = setTimeout(updateStatus, 2000);
+    updateStatus();
 
-    // Set up polling to check for status changes
-    const interval = setInterval(updateStatus, 2000);
+    manager.on("serverAdded", updateStatus);
+    manager.on("serverRemoved", updateStatus);
+    manager.on("serverError", updateStatus);
 
     return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
+      manager.off("serverAdded", updateStatus);
+      manager.off("serverRemoved", updateStatus);
+      manager.off("serverError", updateStatus);
     };
   }, []);
 

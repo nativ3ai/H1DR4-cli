@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { Box, Text } from "ink";
+import React, { useEffect, useRef } from "react";
+import { Box, Text, render } from "ink";
 import { formatTokenCount } from "../../utils/token-counter";
+import { tokenEventEmitter } from "../../utils/token-events";
 
 interface LoadingSpinnerProps {
   isActive: boolean;
-  processingTime: number;
-  tokenCount: number;
 }
 
 const loadingTexts = [
@@ -25,52 +24,56 @@ const loadingTexts = [
   "Downloading...",
 ];
 
-export function LoadingSpinner({
-  isActive,
-  processingTime,
-  tokenCount,
-}: LoadingSpinnerProps) {
-  const [spinnerFrame, setSpinnerFrame] = useState(0);
-  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
+export function LoadingSpinner({ isActive }: LoadingSpinnerProps) {
+  const tokenCountRef = useRef(0);
+  const rendererRef = useRef<any>(null);
+  const loadingTextRef = useRef<string>(loadingTexts[0]);
+
+  const update = () => {
+    if (rendererRef.current) {
+      rendererRef.current.rerender(
+        <Box marginTop={1}>
+          <Text color="cyan">⏳ {loadingTextRef.current} </Text>
+          <Text color="gray">
+            (↑ {formatTokenCount(tokenCountRef.current)} tokens · esc to interrupt)
+          </Text>
+        </Box>
+      );
+    }
+  };
 
   useEffect(() => {
-    if (!isActive) return;
-
-    const spinnerFrames = ["/", "-", "\\", "|"];
-    // Reduced frequency: 500ms instead of 250ms to reduce flickering on Windows
-    const interval = setInterval(() => {
-      setSpinnerFrame((prev) => (prev + 1) % spinnerFrames.length);
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [isActive]);
+    const handler = (count: number) => {
+      tokenCountRef.current = count;
+      update();
+    };
+    tokenEventEmitter.on("update", handler);
+    return () => {
+      tokenEventEmitter.off("update", handler);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!isActive) return;
-
-    setLoadingTextIndex(Math.floor(Math.random() * loadingTexts.length));
-
-    // Increased interval: 4s instead of 2s to reduce state changes
-    const interval = setInterval(() => {
-      setLoadingTextIndex(Math.floor(Math.random() * loadingTexts.length));
-    }, 4000);
-
-    return () => clearInterval(interval);
+    if (isActive) {
+      loadingTextRef.current =
+        loadingTexts[Math.floor(Math.random() * loadingTexts.length)];
+      rendererRef.current = render(
+        <Box marginTop={1}>
+          <Text color="cyan">⏳ {loadingTextRef.current} </Text>
+          <Text color="gray">
+            (↑ {formatTokenCount(tokenCountRef.current)} tokens · esc to interrupt)
+          </Text>
+        </Box>
+      );
+    } else {
+      rendererRef.current?.unmount();
+      rendererRef.current = null;
+    }
+    return () => {
+      rendererRef.current?.unmount();
+      rendererRef.current = null;
+    };
   }, [isActive]);
 
-  if (!isActive) return null;
-
-  const spinnerFrames = ["/", "-", "\\", "|"];
-
-  return (
-    <Box marginTop={1}>
-      <Text color="cyan">
-        {spinnerFrames[spinnerFrame]} {loadingTexts[loadingTextIndex]}{" "}
-      </Text>
-      <Text color="gray">
-        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens · esc to
-        interrupt)
-      </Text>
-    </Box>
-  );
+  return null;
 }

@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInput } from "ink";
+import { useInput, useStdout } from "ink";
 import { H1dr4Agent, ChatEntry } from "../agent/h1dr4-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { useEnhancedInput, Key } from "./use-enhanced-input";
+import { tokenEventEmitter } from "../utils/token-events";
 
 import { filterCommandSuggestions } from "../ui/components/command-suggestions";
 import { loadModelConfig, updateCurrentModel } from "../utils/model-config";
@@ -13,9 +14,6 @@ interface UseInputHandlerProps {
   setChatHistory: React.Dispatch<React.SetStateAction<ChatEntry[]>>;
   setIsProcessing: (processing: boolean) => void;
   setIsStreaming: (streaming: boolean) => void;
-  setTokenCount: (count: number) => void;
-  setProcessingTime: (time: number) => void;
-  processingStartTime: React.MutableRefObject<number>;
   isProcessing: boolean;
   isStreaming: boolean;
   isConfirmationActive?: boolean;
@@ -36,9 +34,6 @@ export function useInputHandler({
   setChatHistory,
   setIsProcessing,
   setIsStreaming,
-  setTokenCount,
-  setProcessingTime,
-  processingStartTime,
   isProcessing,
   isStreaming,
   isConfirmationActive = false,
@@ -91,9 +86,7 @@ export function useInputHandler({
         agent.abortCurrentOperation();
         setIsProcessing(false);
         setIsStreaming(false);
-        setTokenCount(0);
-        setProcessingTime(0);
-        processingStartTime.current = 0;
+        tokenEventEmitter.emit("update", 0);
         return true;
       }
       return false; // Let default escape handling work
@@ -236,15 +229,10 @@ export function useInputHandler({
     const trimmedInput = input.trim();
 
     if (trimmedInput === "/clear") {
-      // Reset chat history
       setChatHistory([]);
-
-      // Reset processing states
       setIsProcessing(false);
       setIsStreaming(false);
-      setTokenCount(0);
-      setProcessingTime(0);
-      processingStartTime.current = 0;
+      tokenEventEmitter.emit("update", 0);
 
       // Reset confirmation service session flags
       const confirmationService = ConfirmationService.getInstance();
@@ -607,6 +595,8 @@ Respond with ONLY the commit message, no additional text.`;
     return false;
   };
 
+  const { stdout } = useStdout();
+
   const processUserMessage = async (userInput: string) => {
     const userEntry: ChatEntry = {
       type: "user",
@@ -620,62 +610,41 @@ Respond with ONLY the commit message, no additional text.`;
 
     try {
       setIsStreaming(true);
-      let streamingEntry: ChatEntry | null = null;
+      let buffer = "";
 
       for await (const chunk of agent.processUserMessageStream(userInput)) {
         switch (chunk.type) {
           case "content":
             if (chunk.content) {
-              if (!streamingEntry) {
-                const newStreamingEntry = {
-                  type: "assistant" as const,
-                  content: chunk.content,
-                  timestamp: new Date(),
-                  isStreaming: true,
-                };
-                setChatHistory((prev) => [...prev, newStreamingEntry]);
-                streamingEntry = newStreamingEntry;
-              } else {
-                setChatHistory((prev) =>
-                  prev.map((entry, idx) =>
-                    idx === prev.length - 1 && entry.isStreaming
-                      ? { ...entry, content: entry.content + chunk.content }
-                      : entry
-                  )
-                );
-              }
+              buffer += chunk.content;
+              stdout.write(chunk.content);
             }
             break;
 
           case "token_count":
             if (chunk.tokenCount !== undefined) {
-              setTokenCount(chunk.tokenCount);
+              tokenEventEmitter.emit("update", chunk.tokenCount);
             }
             break;
 
           case "tool_calls":
+            stdout.write("\n");
             if (chunk.toolCalls) {
-              // Stop streaming for the current assistant message
-              setChatHistory((prev) =>
-                prev.map((entry) =>
-                  entry.isStreaming
-                    ? {
-                        ...entry,
-                        isStreaming: false,
-                        toolCalls: chunk.toolCalls,
-                      }
-                    : entry
-                )
-              );
-              streamingEntry = null;
+              const assistantEntry: ChatEntry = {
+                type: "assistant",
+                content: buffer,
+                timestamp: new Date(),
+                toolCalls: chunk.toolCalls,
+              };
+              setChatHistory((prev) => [...prev, assistantEntry]);
+              buffer = "";
 
-              // Add individual tool call entries to show tools are being executed
               chunk.toolCalls.forEach((toolCall) => {
                 const toolCallEntry: ChatEntry = {
                   type: "tool_call",
                   content: "Executing...",
                   timestamp: new Date(),
-                  toolCall: toolCall,
+                  toolCall,
                 };
                 setChatHistory((prev) => [...prev, toolCallEntry]);
               });
@@ -685,38 +654,32 @@ Respond with ONLY the commit message, no additional text.`;
           case "tool_result":
             if (chunk.toolCall && chunk.toolResult) {
               setChatHistory((prev) =>
-                prev.map((entry) => {
-                  if (entry.isStreaming) {
-                    return { ...entry, isStreaming: false };
-                  }
-                  // Update the existing tool_call entry with the result
-                  if (
-                    entry.type === "tool_call" &&
-                    entry.toolCall?.id === chunk.toolCall?.id
-                  ) {
-                    return {
-                      ...entry,
-                      type: "tool_result",
-                      content: chunk.toolResult.success
-                        ? chunk.toolResult.output || "Success"
-                        : chunk.toolResult.error || "Error occurred",
-                      toolResult: chunk.toolResult,
-                    };
-                  }
-                  return entry;
-                })
+                prev.map((entry) =>
+                  entry.type === "tool_call" &&
+                  entry.toolCall?.id === chunk.toolCall?.id
+                    ? {
+                        ...entry,
+                        type: "tool_result",
+                        content: chunk.toolResult.success
+                          ? chunk.toolResult.output || "Success"
+                          : chunk.toolResult.error || "Error occurred",
+                        toolResult: chunk.toolResult,
+                      }
+                    : entry
+                )
               );
-              streamingEntry = null;
             }
             break;
 
           case "done":
-            if (streamingEntry) {
-              setChatHistory((prev) =>
-                prev.map((entry) =>
-                  entry.isStreaming ? { ...entry, isStreaming: false } : entry
-                )
-              );
+            stdout.write("\n");
+            if (buffer) {
+              const finalEntry: ChatEntry = {
+                type: "assistant",
+                content: buffer,
+                timestamp: new Date(),
+              };
+              setChatHistory((prev) => [...prev, finalEntry]);
             }
             setIsStreaming(false);
             break;
@@ -733,7 +696,6 @@ Respond with ONLY the commit message, no additional text.`;
     }
 
     setIsProcessing(false);
-    processingStartTime.current = 0;
   };
 
 

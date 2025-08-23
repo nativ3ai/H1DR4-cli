@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text } from "ink";
 import { H1dr4Agent, ChatEntry } from "../../agent/h1dr4-agent";
 import { useInputHandler } from "../../hooks/use-input-handler";
@@ -15,6 +15,7 @@ import {
 } from "../../utils/confirmation-service";
 import ApiKeyInput from "./api-key-input";
 import cfonts from "cfonts";
+import { tokenEventEmitter } from "../../utils/token-events";
 
 interface ChatInterfaceProps {
   agent?: H1dr4Agent;
@@ -24,13 +25,10 @@ interface ChatInterfaceProps {
 function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingTime, setProcessingTime] = useState(0);
-  const [tokenCount, setTokenCount] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
   const scrollRef = useRef<any>();
-  const processingStartTime = useRef<number>(0);
 
   const confirmationService = ConfirmationService.getInstance();
 
@@ -50,30 +48,12 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     setChatHistory,
     setIsProcessing,
     setIsStreaming,
-    setTokenCount,
-    setProcessingTime,
-    processingStartTime,
     isProcessing,
     isStreaming,
     isConfirmationActive: !!confirmationOptions,
   });
 
-  useEffect(() => {
-    // Only clear console on non-Windows platforms or if not PowerShell
-    // Windows PowerShell can have issues with console.clear() causing flickering
-    const isWindows = process.platform === "win32";
-    const isPowerShell =
-      process.env.ComSpec?.toLowerCase().includes("powershell") ||
-      process.env.PSModulePath !== undefined;
-
-    if (!isWindows || !isPowerShell) {
-      console.clear();
-    }
-
-    // Add top padding
-    console.log("    ");
-
-    // Generate logo with margin to match Ink paddingX={2}
+  const logoLines = useMemo(() => {
     const logoOutput = cfonts.render("H1DR4", {
       font: "3d",
       align: "left",
@@ -85,20 +65,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
       transitionGradient: true,
       env: "node",
     });
-
-    // Add horizontal margin (2 spaces) to match Ink paddingX={2}
-    const logoLines = (logoOutput as any).string.split("\n");
-    logoLines.forEach((line: string) => {
-      if (line.trim()) {
-        console.log(" " + line); // Add 2 spaces for horizontal margin
-      } else {
-        console.log(line); // Keep empty lines as-is
-      }
-    });
-
-    console.log(" "); // Spacing after logo
-
-    setChatHistory([]);
+    return (logoOutput as any).string.split("\n").filter(Boolean);
   }, []);
 
   useEffect(() => {
@@ -126,24 +93,6 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     };
   }, [confirmationService]);
 
-  useEffect(() => {
-    if (!isProcessing && !isStreaming) {
-      setProcessingTime(0);
-      return;
-    }
-
-    if (processingStartTime.current === 0) {
-      processingStartTime.current = Date.now();
-    }
-
-    const interval = setInterval(() => {
-      setProcessingTime(
-        Math.floor((Date.now() - processingStartTime.current) / 1000)
-      );
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isProcessing, isStreaming]);
 
   const handleConfirmation = (dontAskAgain?: boolean) => {
     confirmationService.confirmOperation(true, dontAskAgain);
@@ -157,13 +106,17 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     // Reset processing states when operation is cancelled
     setIsProcessing(false);
     setIsStreaming(false);
-    setTokenCount(0);
-    setProcessingTime(0);
-    processingStartTime.current = 0;
+    tokenEventEmitter.emit("update", 0);
   };
 
   return (
     <Box flexDirection="column" paddingX={2}>
+      <Box flexDirection="column" marginTop={1} marginBottom={1}>
+        {logoLines.map((line, idx) => (
+          <Text key={idx}>{line}</Text>
+        ))}
+      </Box>
+
       {/* Show tips only when no chat history and no confirmation dialog */}
       {chatHistory.length === 0 && !confirmationOptions && (
         <Box flexDirection="column" marginBottom={2}>
@@ -213,11 +166,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
 
       {!confirmationOptions && (
         <>
-          <LoadingSpinner
-            isActive={isProcessing || isStreaming}
-            processingTime={processingTime}
-            tokenCount={tokenCount}
-          />
+          <LoadingSpinner isActive={isProcessing || isStreaming} />
 
           <ChatInput
             input={input}
