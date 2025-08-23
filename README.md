@@ -34,7 +34,7 @@ npm install -g @h1dr4/h1dr4-cli
 
 ### Local Development
 ```bash
-git clone <repository>
+git clone https://github.com/nativ3ai/H1DR4-cli.git
 cd h1dr4-cli
 npm install
 npm run build
@@ -43,69 +43,75 @@ npm link
 
 ## Setup
 
-1. Get your Grok API key from [X.AI](https://x.ai)
+**1. Get your Grok API key from [X.AI](https://x.ai)**
 
-2. Set up your API key (choose one method):
+**2. Set up your API key (choose one method):**
 
-**Method 1: Environment Variable**
+Method 1: Environment Variable
 ```bash
 export GROK_API_KEY=your_api_key_here
 ```
 
-**Method 2: .env File**
+Method 2: .env File
 ```bash
 cp .env.example .env
 # Edit .env and add your API key
 ```
 
-**Method 3: Command Line Flag**
+Method 3: Command Line Flag
 ```bash
 h1dr4 --api-key your_api_key_here
 ```
 
-**Method 4: User Settings File**
+Method 4: User Settings File
 Create `~/.h1dr4/user-settings.json`:
 ```json
 {
   "apiKey": "your_api_key_here"
 }
 ```
-
-3. (Optional, Recommended) Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)
-
-4. Set up your Morph API key for Fast Apply editing (choose one method):
-
-**Method 1: Environment Variable**
+**Start H1DR4:**
 ```bash
-export MORPH_API_KEY=your_morph_api_key_here
+h1dr4
+```
+**To close siply hold:**
+```bash
+ctrl+c
 ```
 
-**Method 2: .env File**
-```bash
-# Add to your .env file
-MORPH_API_KEY=your_morph_api_key_here
-```
+**(Optional, Recommended)**
 
-5. Set your H1dr4 OSINT token:
+- Set your H1DR4 OSINT token -> get one at [telegram](htttps://t.me/osintbotbot) (siply click: menu -> api) or throught [H1DR4](https://h1dr4.dev/terminal) -> type "token":
+
+Environment Variable
 ```bash
 export OSINT_TOKEN=your-h1dr4_osint-token
+```
+
+- Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)**
+
+- Set up your Morph API key for Fast Apply editing (choose one method):
+
+Environment Variable
+```bash
+export MORPH_API_KEY=your_morph_api_key_here
 ```
 
 ### Custom Base URL (Optional)
 
 By default, the CLI uses `https://api.x.ai/v1` as the Grok API endpoint. You can configure a custom endpoint if needed (choose one method):
 
-**Method 1: Environment Variable**
+Method 1: Environment Variable
 ```bash
 export GROK_BASE_URL=https://your-custom-endpoint.com/v1
 ```
 
-**Method 2: Command Line Flag**
+Method 2: Command Line Flag
 ```bash
 h1dr4 --api-key your_api_key_here --base-url https://your-custom-endpoint.com/v1
 ```
 
-**Method 3: User Settings File**
+Method 3: User Settings File
 Add to `~/.h1dr4/user-settings.json`:
 ```json
 {
@@ -201,7 +207,7 @@ This means you can have different models for different projects while maintainin
 
 ### Interactive Mode
 
-Start the conversational AI assistant:
+Start H1DR4:
 ```bash
 h1dr4
 ```
