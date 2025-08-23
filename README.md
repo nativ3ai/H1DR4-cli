@@ -60,13 +60,6 @@ or
 h1dr4 --api-key your_api_key_here
 ```
 
-**3. Start H1DR4:**
-```bash
-h1dr4
-```
-Check Usage details below ;)
-
-
 **(Optional, Recommended)**
 
 - Set your H1DR4 OSINT token -> get one at [Telegram](https://t.me/osintbotbot) -> siply click: menu -> api or throught [H1DR4](https://h1dr4.dev/terminal) -> type "token":
@@ -83,6 +76,107 @@ export OSINT_TOKEN=your-h1dr4_osint-token
 Environment Variable
 ```bash
 export MORPH_API_KEY=your_morph_api_key_here
+```
+
+## Usage
+
+### Interactive Mode
+
+Start H1DR4:
+```bash
+h1dr4
+```
+
+Or specify a working directory:
+```bash
+h1dr4 -d /path/to/project
+```
+
+### Headless Mode
+
+Process a single prompt and exit (useful for scripting and automation):
+```bash
+h1dr4 --prompt "show me the package.json file"
+h1dr4 -p "create a new file called example.js with a hello world function"
+h1dr4 --prompt "run npm test and show me the results" --directory /path/to/project
+h1dr4 --prompt "complex task" --max-tool-rounds 50  # Limit tool usage for faster execution
+```
+
+This mode is particularly useful for:
+- **CI/CD pipelines**: Automate code analysis and file operations
+- **Scripting**: Integrate AI assistance into shell scripts
+- **Terminal benchmarks**: Perfect for tools like Terminal Bench that need non-interactive execution
+- **Batch processing**: Process multiple prompts programmatically
+
+### Tool Execution Control
+
+By default, H1DR4 CLI allows up to 400 tool execution rounds to handle complex multi-step tasks. You can control this behavior:
+
+```bash
+# Limit tool rounds for faster execution on simple tasks
+h1dr4 --max-tool-rounds 10 --prompt "show me the current directory"
+
+# Increase limit for very complex tasks (use with caution)
+h1dr4 --max-tool-rounds 1000 --prompt "comprehensive code refactoring"
+
+# Works with all modes
+h1dr4 --max-tool-rounds 20  # Interactive mode
+h1dr4 git commit-and-push --max-tool-rounds 30  # Git commands
+```
+
+**Use Cases**:
+- **Fast responses**: Lower limits (10-50) for simple queries
+- **Complex automation**: Higher limits (500+) for comprehensive tasks
+- **Resource control**: Prevent runaway executions in automated environments
+
+### Model Selection
+
+You can specify which AI model to use with the `--model` parameter or `H1DR4_MODEL` environment variable:
+
+**Method 1: Command Line Flag**
+```bash
+# Use H1DR4 models
+h1dr4 --model grok-4-latest
+h1dr4 --model grok-3-latest
+h1dr4 --model grok-3-fast
+
+# Use other models (with appropriate API endpoint)
+h1dr4 --model gemini-2.5-pro --base-url https://api-endpoint.com/v1
+h1dr4 --model claude-sonnet-4-20250514 --base-url https://api-endpoint.com/v1
+```
+
+**Method 2: Environment Variable**
+```bash
+export H1DR4_MODEL=grok-4-latest
+export OSINT_TOKEN=your_osint_token_here
+h1dr4
+```
+
+**Method 3: User Settings File**
+Add to `~/.h1dr4/user-settings.json`:
+```json
+{
+  "apiKey": "your_api_key_here",
+  "defaultModel": "grok-4-latest"
+}
+```
+
+**Model Priority**: `--model` flag > `H1DR4_MODEL` environment variable > user default model > system default (grok-4-latest)
+
+### Command Line Options
+
+```bash
+h1dr4 [options]
+
+Options:
+  -V, --version          output the version number
+  -d, --directory <dir>  set working directory
+  -k, --api-key <key>    Grok API key (or set GROK_API_KEY env var)
+  -u, --base-url <url>   Grok API base URL (or set GROK_BASE_URL env var)
+  -m, --model <model>    AI model to use (e.g., grok-4-latest, grok-3-latest) (or set H1DR4_MODEL env var)
+  -p, --prompt <prompt>  process a single prompt and exit (headless mode)
+  --max-tool-rounds <rounds>  maximum number of tool execution rounds (default: 400)
+  -h, --help             display help for command
 ```
 
 ### Custom Base URL (Optional)
@@ -189,107 +283,6 @@ This means you can have different models for different projects while maintainin
     "meta-llama/llama-3.1-70b-instruct"
   ]
 }
-```
-
-## Usage
-
-### Interactive Mode
-
-Start H1DR4:
-```bash
-h1dr4
-```
-
-Or specify a working directory:
-```bash
-h1dr4 -d /path/to/project
-```
-
-### Headless Mode
-
-Process a single prompt and exit (useful for scripting and automation):
-```bash
-h1dr4 --prompt "show me the package.json file"
-h1dr4 -p "create a new file called example.js with a hello world function"
-h1dr4 --prompt "run npm test and show me the results" --directory /path/to/project
-h1dr4 --prompt "complex task" --max-tool-rounds 50  # Limit tool usage for faster execution
-```
-
-This mode is particularly useful for:
-- **CI/CD pipelines**: Automate code analysis and file operations
-- **Scripting**: Integrate AI assistance into shell scripts
-- **Terminal benchmarks**: Perfect for tools like Terminal Bench that need non-interactive execution
-- **Batch processing**: Process multiple prompts programmatically
-
-### Tool Execution Control
-
-By default, H1DR4 CLI allows up to 400 tool execution rounds to handle complex multi-step tasks. You can control this behavior:
-
-```bash
-# Limit tool rounds for faster execution on simple tasks
-h1dr4 --max-tool-rounds 10 --prompt "show me the current directory"
-
-# Increase limit for very complex tasks (use with caution)
-h1dr4 --max-tool-rounds 1000 --prompt "comprehensive code refactoring"
-
-# Works with all modes
-h1dr4 --max-tool-rounds 20  # Interactive mode
-h1dr4 git commit-and-push --max-tool-rounds 30  # Git commands
-```
-
-**Use Cases**:
-- **Fast responses**: Lower limits (10-50) for simple queries
-- **Complex automation**: Higher limits (500+) for comprehensive tasks
-- **Resource control**: Prevent runaway executions in automated environments
-
-### Model Selection
-
-You can specify which AI model to use with the `--model` parameter or `H1DR4_MODEL` environment variable:
-
-**Method 1: Command Line Flag**
-```bash
-# Use H1DR4 models
-h1dr4 --model grok-4-latest
-h1dr4 --model grok-3-latest
-h1dr4 --model grok-3-fast
-
-# Use other models (with appropriate API endpoint)
-h1dr4 --model gemini-2.5-pro --base-url https://api-endpoint.com/v1
-h1dr4 --model claude-sonnet-4-20250514 --base-url https://api-endpoint.com/v1
-```
-
-**Method 2: Environment Variable**
-```bash
-export H1DR4_MODEL=grok-4-latest
-export OSINT_TOKEN=your_osint_token_here
-h1dr4
-```
-
-**Method 3: User Settings File**
-Add to `~/.h1dr4/user-settings.json`:
-```json
-{
-  "apiKey": "your_api_key_here",
-  "defaultModel": "grok-4-latest"
-}
-```
-
-**Model Priority**: `--model` flag > `H1DR4_MODEL` environment variable > user default model > system default (grok-4-latest)
-
-### Command Line Options
-
-```bash
-h1dr4 [options]
-
-Options:
-  -V, --version          output the version number
-  -d, --directory <dir>  set working directory
-  -k, --api-key <key>    Grok API key (or set GROK_API_KEY env var)
-  -u, --base-url <url>   Grok API base URL (or set GROK_BASE_URL env var)
-  -m, --model <model>    AI model to use (e.g., grok-4-latest, grok-3-latest) (or set H1DR4_MODEL env var)
-  -p, --prompt <prompt>  process a single prompt and exit (headless mode)
-  --max-tool-rounds <rounds>  maximum number of tool execution rounds (default: 400)
-  -h, --help             display help for command
 ```
 
 ### Custom Instructions
