@@ -77,6 +77,28 @@ Environment Variable
 ```bash
 export MORPH_API_KEY=your_morph_api_key_here
 ```
+### Custom Base URL (Optional)
+
+By default, the CLI uses `https://api.x.ai/v1` as the Grok API endpoint. You can configure a custom endpoint if needed (choose one method):
+
+Method 1: Environment Variable
+```bash
+export GROK_BASE_URL=https://your-custom-endpoint.com/v1
+```
+
+Method 2: Command Line Flag
+```bash
+h1dr4 --api-key your_api_key_here --base-url https://your-custom-endpoint.com/v1
+```
+
+Method 3: User Settings File
+Add to `~/.h1dr4/user-settings.json`:
+```json
+{
+  "apiKey": "your_api_key_here",
+  "baseURL": "https://your-custom-endpoint.com/v1"
+}
+```
 
 ## Usage
 
@@ -179,28 +201,6 @@ Options:
   -h, --help             display help for command
 ```
 
-### Custom Base URL (Optional)
-
-By default, the CLI uses `https://api.x.ai/v1` as the Grok API endpoint. You can configure a custom endpoint if needed (choose one method):
-
-Method 1: Environment Variable
-```bash
-export GROK_BASE_URL=https://your-custom-endpoint.com/v1
-```
-
-Method 2: Command Line Flag
-```bash
-h1dr4 --api-key your_api_key_here --base-url https://your-custom-endpoint.com/v1
-```
-
-Method 3: User Settings File
-Add to `~/.h1dr4/user-settings.json`:
-```json
-{
-  "apiKey": "your_api_key_here",
-  "baseURL": "https://your-custom-endpoint.com/v1"
-}
-```
 
 ## Configuration Files
 
