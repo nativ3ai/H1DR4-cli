@@ -80,6 +80,7 @@ h1dr4 --api-key your_api_key_here
 
 ### (Optional, Recommended)
 
+**Set your OSINT TOKEN**
 *Note*: The CLI will work with just the Grok API Key, but adding the OSINT Access Token unlocks additional features and improves the overall experience.
 
 -> get one either at:
