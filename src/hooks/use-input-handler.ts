@@ -223,18 +223,18 @@ export function useInputHandler({
   // Hook up the actual input handling with scroll controls
   useInput((inputChar: string, key: Key) => {
     if (!isConfirmationActive && !showCommandSuggestions && !showModelSelection) {
-      if (inputChar === "s" && !key.ctrl && !key.meta && !key.shift) {
-        setAutoScroll((prev) => {
-          const next = !prev;
-          if (next) {
-            setScrollOffset(0);
-          }
-          return next;
-        });
-        return;
-      }
-
       if (input.length === 0) {
+        if (key.shift && inputChar.toLowerCase() === "s" && !key.ctrl && !key.meta) {
+          setAutoScroll((prev) => {
+            const next = !prev;
+            if (next) {
+              setScrollOffset(0);
+            }
+            return next;
+          });
+          return;
+        }
+
         if (key.pageUp) {
           setScrollOffset((prev) =>
             Math.min(prev + visibleCount, chatHistory.length)
@@ -680,19 +680,23 @@ Respond with ONLY the commit message, no additional text.`;
       let buffer = "";
       const debouncedUpdate = debounce(() => {
         if (streamingEntry && buffer) {
-          setChatHistory((prev) =>
-            prev.map((entry, idx) =>
-              idx === prev.length - 1 && entry.isStreaming
-                ? { ...entry, content: entry.content + buffer }
-                : entry
-            )
-          );
-          if (streamingEntry) {
-            streamingEntry.content += buffer;
-          }
+          const chunk = buffer;
           buffer = "";
+          setChatHistory((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            const last = updated[lastIndex];
+            if (last && last.isStreaming) {
+              updated[lastIndex] = {
+                ...last,
+                content: last.content + chunk,
+              };
+              streamingEntry.content += chunk;
+            }
+            return updated;
+          });
         }
-      }, 300);
+      }, 500);
 
       for await (const chunk of agent.processUserMessageStream(userInput)) {
         switch (chunk.type) {

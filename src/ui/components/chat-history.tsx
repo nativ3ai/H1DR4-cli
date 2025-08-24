@@ -246,7 +246,7 @@ export function ChatHistory({
     <Box flexDirection="column">
       {visibleEntries.map((entry, index) => (
         <MemoizedChatEntry
-          key={`${entry.timestamp.getTime()}-${start + index}`}
+          key={entry.timestamp.getTime()}
           entry={entry}
           index={start + index}
         />

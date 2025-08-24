@@ -210,7 +210,8 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
             <Text color="gray">
               4. Press Shift+Tab to toggle auto-edit mode.
             </Text>
-            <Text color="gray">5. /help for more information.</Text>
+            <Text color="gray">5. Press Shift+S to toggle auto-scroll.</Text>
+            <Text color="gray">6. /help for more information.</Text>
           </Box>
         </Box>
       )}
