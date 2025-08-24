@@ -7,6 +7,8 @@ import { MarkdownRenderer } from "../utils/markdown-renderer";
 interface ChatHistoryProps {
   entries: ChatEntry[];
   isConfirmationActive?: boolean;
+  scrollOffset: number;
+  visibleCount: number;
 }
 
 // Memoized ChatEntry component to prevent unnecessary re-renders
@@ -222,6 +224,8 @@ MemoizedChatEntry.displayName = "MemoizedChatEntry";
 export function ChatHistory({
   entries,
   isConfirmationActive = false,
+  scrollOffset,
+  visibleCount,
 }: ChatHistoryProps) {
   // Filter out tool_call entries with "Executing..." when confirmation is active
   const filteredEntries = isConfirmationActive
@@ -231,13 +235,20 @@ export function ChatHistory({
       )
     : entries;
 
+  const start = Math.max(
+    0,
+    filteredEntries.length - visibleCount - scrollOffset
+  );
+  const end = Math.max(0, filteredEntries.length - scrollOffset);
+  const visibleEntries = filteredEntries.slice(start, end);
+
   return (
     <Box flexDirection="column">
-      {filteredEntries.slice(-20).map((entry, index) => (
+      {visibleEntries.map((entry, index) => (
         <MemoizedChatEntry
-          key={`${entry.timestamp.getTime()}-${index}`}
+          key={entry.timestamp.getTime()}
           entry={entry}
-          index={index}
+          index={start + index}
         />
       ))}
     </Box>
