@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useInput } from "ink";
+import debounce from "lodash.debounce";
 import { H1dr4Agent, ChatEntry } from "../agent/h1dr4-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { useEnhancedInput, Key } from "./use-enhanced-input";
@@ -19,6 +20,11 @@ interface UseInputHandlerProps {
   isProcessing: boolean;
   isStreaming: boolean;
   isConfirmationActive?: boolean;
+  scrollOffset: number;
+  setScrollOffset: React.Dispatch<React.SetStateAction<number>>;
+  autoScroll: boolean;
+  setAutoScroll: React.Dispatch<React.SetStateAction<boolean>>;
+  visibleCount: number;
 }
 
 interface CommandSuggestion {
@@ -42,6 +48,11 @@ export function useInputHandler({
   isProcessing,
   isStreaming,
   isConfirmationActive = false,
+  scrollOffset,
+  setScrollOffset,
+  autoScroll,
+  setAutoScroll,
+  visibleCount,
 }: UseInputHandlerProps) {
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -209,8 +220,44 @@ export function useInputHandler({
     disabled: isConfirmationActive,
   });
 
-  // Hook up the actual input handling
+  // Hook up the actual input handling with scroll controls
   useInput((inputChar: string, key: Key) => {
+    if (!isConfirmationActive && !showCommandSuggestions && !showModelSelection) {
+      if (inputChar === "s" && !key.ctrl && !key.meta && !key.shift) {
+        setAutoScroll((prev) => {
+          const next = !prev;
+          if (next) {
+            setScrollOffset(0);
+          }
+          return next;
+        });
+        return;
+      }
+
+      if (input.length === 0) {
+        if (key.pageUp) {
+          setScrollOffset((prev) =>
+            Math.min(prev + visibleCount, chatHistory.length)
+          );
+          setAutoScroll(false);
+          return;
+        }
+        if (key.pageDown) {
+          setScrollOffset((prev) => Math.max(prev - visibleCount, 0));
+          return;
+        }
+        if (key.upArrow) {
+          setScrollOffset((prev) => Math.min(prev + 1, chatHistory.length));
+          setAutoScroll(false);
+          return;
+        }
+        if (key.downArrow) {
+          setScrollOffset((prev) => Math.max(prev - 1, 0));
+          return;
+        }
+      }
+    }
+
     handleInput(inputChar, key);
   });
 
@@ -429,6 +476,23 @@ Respond with ONLY the commit message, no additional text.`;
 
         let commitMessage = "";
         let streamingEntry: ChatEntry | null = null;
+        let commitBuffer = "";
+        const debouncedCommitUpdate = debounce(() => {
+          if (streamingEntry && commitBuffer) {
+            commitMessage += commitBuffer;
+            setChatHistory((prev) =>
+              prev.map((entry, idx) =>
+                idx === prev.length - 1 && entry.isStreaming
+                  ? {
+                      ...entry,
+                      content: `Generating commit message...\n\n${commitMessage}`,
+                    }
+                  : entry
+              )
+            );
+            commitBuffer = "";
+          }
+        }, 300);
 
         for await (const chunk of agent.processUserMessageStream(
           commitPrompt
@@ -445,19 +509,11 @@ Respond with ONLY the commit message, no additional text.`;
               streamingEntry = newEntry;
               commitMessage = chunk.content;
             } else {
-              commitMessage += chunk.content;
-              setChatHistory((prev) =>
-                prev.map((entry, idx) =>
-                  idx === prev.length - 1 && entry.isStreaming
-                    ? {
-                        ...entry,
-                        content: `Generating commit message...\n\n${commitMessage}`,
-                      }
-                    : entry
-                )
-              );
+              commitBuffer += chunk.content;
+              debouncedCommitUpdate();
             }
           } else if (chunk.type === "done") {
+            debouncedCommitUpdate.flush();
             if (streamingEntry) {
               setChatHistory((prev) =>
                 prev.map((entry) =>
@@ -621,6 +677,22 @@ Respond with ONLY the commit message, no additional text.`;
     try {
       setIsStreaming(true);
       let streamingEntry: ChatEntry | null = null;
+      let buffer = "";
+      const debouncedUpdate = debounce(() => {
+        if (streamingEntry && buffer) {
+          setChatHistory((prev) =>
+            prev.map((entry, idx) =>
+              idx === prev.length - 1 && entry.isStreaming
+                ? { ...entry, content: entry.content + buffer }
+                : entry
+            )
+          );
+          if (streamingEntry) {
+            streamingEntry.content += buffer;
+          }
+          buffer = "";
+        }
+      }, 300);
 
       for await (const chunk of agent.processUserMessageStream(userInput)) {
         switch (chunk.type) {
@@ -636,13 +708,8 @@ Respond with ONLY the commit message, no additional text.`;
                 setChatHistory((prev) => [...prev, newStreamingEntry]);
                 streamingEntry = newStreamingEntry;
               } else {
-                setChatHistory((prev) =>
-                  prev.map((entry, idx) =>
-                    idx === prev.length - 1 && entry.isStreaming
-                      ? { ...entry, content: entry.content + chunk.content }
-                      : entry
-                  )
-                );
+                buffer += chunk.content;
+                debouncedUpdate();
               }
             }
             break;
@@ -711,6 +778,7 @@ Respond with ONLY the commit message, no additional text.`;
             break;
 
           case "done":
+            debouncedUpdate.flush();
             if (streamingEntry) {
               setChatHistory((prev) =>
                 prev.map((entry) =>

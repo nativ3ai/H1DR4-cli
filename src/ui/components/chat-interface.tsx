@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useStdout, measureElement } from "ink";
 import { H1dr4Agent, ChatEntry } from "../../agent/h1dr4-agent";
 import { useInputHandler } from "../../hooks/use-input-handler";
 import { LoadingSpinner } from "./loading-spinner";
@@ -31,6 +31,30 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     useState<ConfirmationOptions | null>(null);
   const scrollRef = useRef<any>();
   const processingStartTime = useRef<number>(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const { stdout } = useStdout();
+
+  useEffect(() => {
+    const updateVisible = () => {
+      if (scrollRef.current) {
+        const { height } = measureElement(scrollRef.current);
+        setVisibleCount(height || 20);
+      }
+    };
+    updateVisible();
+    stdout?.on("resize", updateVisible);
+    return () => {
+      stdout?.off("resize", updateVisible);
+    };
+  }, [stdout]);
+
+  useEffect(() => {
+    if (autoScroll) {
+      setScrollOffset(0);
+    }
+  }, [chatHistory.length, autoScroll]);
 
   const confirmationService = ConfirmationService.getInstance();
 
@@ -56,6 +80,11 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     isProcessing,
     isStreaming,
     isConfirmationActive: !!confirmationOptions,
+    scrollOffset,
+    setScrollOffset,
+    autoScroll,
+    setAutoScroll,
+    visibleCount,
   });
 
   useEffect(() => {
@@ -196,6 +225,8 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
         <ChatHistory
           entries={chatHistory}
           isConfirmationActive={!!confirmationOptions}
+          scrollOffset={scrollOffset}
+          visibleCount={visibleCount}
         />
       </Box>
 
@@ -233,6 +264,12 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
                 {autoEditEnabled ? "on" : "off"}
               </Text>
               <Text color="gray" dimColor> (shift + tab)</Text>
+            </Box>
+            <Box marginRight={2}>
+              <Text color="cyan">
+                {autoScroll ? "↧ auto-scroll:on" : "⇅ auto-scroll:off"}
+              </Text>
+              <Text color="gray" dimColor> (s)</Text>
             </Box>
             <Box marginRight={2}>
               <Text color="yellow">≋ {agent.getCurrentModel()}</Text>
