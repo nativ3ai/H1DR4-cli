@@ -36,7 +36,8 @@
     "openai": "^5.10.1",
     "react": "^17.0.2",
     "ripgrep-node": "^1.0.0",
-    "tiktoken": "^1.0.21"
+    "tiktoken": "^1.0.21",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.2",

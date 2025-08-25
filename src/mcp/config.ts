@@ -1,3 +1,4 @@
+import path from "path";
 import { getSettingsManager } from "../utils/settings-manager";
 import { MCPServerConfig } from "./client";
 
@@ -54,4 +55,16 @@ export function getMCPServer(serverName: string): MCPServerConfig | undefined {
 }
 
 // Predefined server configurations
-export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {};
+export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {
+  "market-data": {
+    name: "market-data",
+    transport: {
+      type: "stdio",
+      command: "node",
+      args: [path.join(__dirname, "servers", "market-data-server.js")],
+      env: {
+        FMP_API_KEY: process.env.FMP_API_KEY || "demo",
+      },
+    },
+  },
+};

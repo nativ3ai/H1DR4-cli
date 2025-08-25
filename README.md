@@ -401,6 +401,23 @@ This enables Linear tools like:
 - Update issue status and assignees
 - Access team and project information
 
+### Market Data Integration Example
+
+Fetch quotes for commodities, equities, indexes, RWAs, or crypto using a built-in market data MCP server powered by the [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/) API.
+
+```bash
+# Add Market Data MCP server (uses demo API key by default)
+h1dr4 mcp add market-data
+```
+
+This registers a `get-market-data` tool. Example invocation:
+
+```
+{ "category": "crypto", "symbol": "BTCUSD" }
+```
+
+Set the `FMP_API_KEY` environment variable to use your own API key instead of the demo key.
+
 ### Managing MCP Servers
 
 ```bash
