@@ -7,14 +7,16 @@
     "h1dr4": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && npm run build:server",
+    "build": "tsc && npm run build:server && npm run build:web",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --ext .js,.jsx,.ts,.tsx --ignore-pattern web/**",
     "typecheck": "tsc --noEmit",
     "dev:server": "tsx server/index.ts",
     "build:server": "tsc -p tsconfig.server.json",
-    "start:server": "node dist-server/server/index.js"
+    "start:server": "node dist-server/server/index.js",
+    "dev:web": "npm --prefix web run dev",
+    "build:web": "npm --prefix web run build"
   },
   "keywords": [
     "cli",
@@ -40,6 +42,9 @@
     "express": "^4.18.2",
     "ethers": "^5.7.2",
     "react": "^17.0.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.1",
     "ripgrep-node": "^1.0.0",
     "tiktoken": "^1.0.21"
   },

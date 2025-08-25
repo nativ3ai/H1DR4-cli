@@ -9,6 +9,8 @@ dist/
 dist-server/
 lib/
 build/
+web/dist/
+uploads/
 *.tsbuildinfo
 
 # Environment variables

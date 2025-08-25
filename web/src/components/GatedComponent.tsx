@@ -1,5 +1,5 @@
-import React from 'react';
-import { useAccount, useReadContract } from 'wagmi';
+import React, { useState } from 'react';
+import { useAccount, useContractRead } from 'wagmi';
 
 const TOKEN_ADDRESS = '0x83abfc4beec2ecf12995005d751a42df691c09c1';
 
@@ -35,17 +35,23 @@ const STAKING_ABI = [
 const HOLD_AMOUNT = 500_000n;
 const STAKED_AMOUNT = 100_000n;
 
-const GatedComponent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { address, isConnected } = useAccount();
+interface Props {
+  children: React.ReactNode;
+  onBypass: (key: string) => void;
+}
 
-  const { data: decimalsData, isLoading: loadingDecimals } = useReadContract({
+const GatedComponent: React.FC<Props> = ({ children, onBypass }) => {
+  const { address, isConnected } = useAccount();
+  const [key, setKey] = useState('');
+
+  const { data: decimalsData, isLoading: loadingDecimals } = useContractRead({
     address: TOKEN_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'decimals',
     enabled: isConnected,
   });
 
-  const { data: heldBalance, isLoading: loadingHeld } = useReadContract({
+  const { data: heldBalance, isLoading: loadingHeld } = useContractRead({
     address: TOKEN_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'balanceOf',
@@ -53,7 +59,7 @@ const GatedComponent: React.FC<{ children: React.ReactNode }> = ({ children }) =
     enabled: !!address && isConnected,
   });
 
-  const { data: stakedBalance, isLoading: loadingStaked } = useReadContract({
+  const { data: stakedBalance, isLoading: loadingStaked } = useContractRead({
     address: STAKING_VAULT,
     abi: STAKING_ABI,
     functionName: 'balanceOf',
@@ -71,7 +77,17 @@ const GatedComponent: React.FC<{ children: React.ReactNode }> = ({ children }) =
   if (loadingDecimals || loadingHeld || loadingStaked) return <div>Loading...</div>;
   if (!isConnected) return <div>Please connect your wallet.</div>;
   if (!(holdsEnough || stakesEnough))
-    return <div>Access denied. Need ≥500k held or ≥100k staked H1DR4.</div>;
+    return (
+      <div>
+        <p>Access denied. Need ≥500k held or ≥100k staked H1DR4.</p>
+        <input
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="Enter Grok API key"
+        />
+        <button onClick={() => onBypass(key)}>Use Key</button>
+      </div>
+    );
 
   return <>{children}</>;
 };
