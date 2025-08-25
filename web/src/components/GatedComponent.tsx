@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAccount, useContractRead } from 'wagmi';
+import { useAccount, useContractRead, useNetwork } from 'wagmi';
 import { base } from 'wagmi/chains';
 
 const TOKEN_ADDRESS = '0x83abfc4beec2ecf12995005d751a42df691c09c1';
@@ -43,14 +43,16 @@ interface Props {
 
 const GatedComponent: React.FC<Props> = ({ children, onBypass }) => {
   const { address, isConnected } = useAccount();
+  const { chain } = useNetwork();
   const [key, setKey] = useState('');
+
+  const enabled = isConnected && chain?.id === base.id;
 
   const { data: decimalsData, isLoading: loadingDecimals } = useContractRead({
     address: TOKEN_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'decimals',
-    chainId: base.id,
-    enabled: isConnected,
+    enabled,
   });
 
   const { data: heldBalance, isLoading: loadingHeld } = useContractRead({
@@ -58,8 +60,7 @@ const GatedComponent: React.FC<Props> = ({ children, onBypass }) => {
     abi: CONTRACT_ABI,
     functionName: 'balanceOf',
     args: [address],
-    chainId: base.id,
-    enabled: !!address && isConnected,
+    enabled: !!address && enabled,
   });
 
   const { data: stakedBalance, isLoading: loadingStaked } = useContractRead({
@@ -67,8 +68,7 @@ const GatedComponent: React.FC<Props> = ({ children, onBypass }) => {
     abi: STAKING_ABI,
     functionName: 'balanceOf',
     args: [address],
-    chainId: base.id,
-    enabled: !!address && isConnected,
+    enabled: !!address && enabled,
   });
 
   const decimals = decimalsData ? Number(decimalsData) : 0;
@@ -78,8 +78,9 @@ const GatedComponent: React.FC<Props> = ({ children, onBypass }) => {
   const holdsEnough = heldBalance ? heldBalance >= holdThreshold : false;
   const stakesEnough = stakedBalance ? stakedBalance >= stakedThreshold : false;
 
-  if (loadingDecimals || loadingHeld || loadingStaked) return <div>Loading...</div>;
   if (!isConnected) return <div>Please connect your wallet.</div>;
+  if (chain?.id !== base.id) return <div>Please switch to the Base network.</div>;
+  if (loadingDecimals || loadingHeld || loadingStaked) return <div>Loading...</div>;
   if (!(holdsEnough || stakesEnough))
     return (
       <div>
