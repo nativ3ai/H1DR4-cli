@@ -1,5 +1,7 @@
-import { getSettingsManager } from "../utils/settings-manager";
+import path from "path";
+import os from "os";
 import { MCPServerConfig } from "./client";
+import { getSettingsManager } from "../utils/settings-manager";
 
 export interface MCPConfig {
   servers: MCPServerConfig[];
@@ -11,7 +13,9 @@ export interface MCPConfig {
 export function loadMCPConfig(): MCPConfig {
   const manager = getSettingsManager();
   const projectSettings = manager.loadProjectSettings();
-  const servers = projectSettings.mcpServers ? Object.values(projectSettings.mcpServers) : [];
+  const servers = projectSettings.mcpServers
+    ? (Object.values(projectSettings.mcpServers) as MCPServerConfig[])
+    : [];
   return { servers };
 }
 
@@ -54,4 +58,46 @@ export function getMCPServer(serverName: string): MCPServerConfig | undefined {
 }
 
 // Predefined server configurations
-export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {};
+export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {
+  "market-data": {
+    name: "market-data",
+    transport: {
+      type: "stdio",
+      command: "node",
+      args: [path.join(__dirname, "servers", "market-data-server.js")],
+      env: {
+        FMP_API_KEY: process.env.FMP_API_KEY || "demo",
+      },
+    },
+  },
+  fred: {
+    name: "fred",
+    transport: {
+      type: "stdio",
+      command: "node",
+      args: [path.join(__dirname, "servers", "fred-server.js")],
+      env: {
+        FRED_API_KEY: process.env.FRED_API_KEY || "",
+      },
+    },
+  },
+  plot: {
+    name: "plot",
+    transport: {
+      type: "stdio",
+      command: "node",
+      args: [path.join(__dirname, "servers", "plot-server.js")],
+    },
+  },
+  rss: {
+    name: "rss",
+    transport: {
+      type: "stdio",
+      command: "node",
+      args: [path.join(__dirname, "servers", "rss-server.js")],
+      env: {
+        RSS_CONFIG: path.join(os.homedir(), ".h1dr4", "rss-feeds.json"),
+      },
+    },
+  },
+};

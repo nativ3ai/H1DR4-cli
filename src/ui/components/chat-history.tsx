@@ -57,6 +57,25 @@ const MemoizedChatEntry = React.memo(
       });
     };
 
+    const ImageRenderer = ({ data }: { data: string }) => {
+      const [image, setImage] = useState<string>("Loading image...");
+      useEffect(() => {
+        const base64 = data.split(",")[1];
+        const buffer = Buffer.from(base64, "base64");
+
+        (async () => {
+          try {
+            const { default: terminalImage } = await import("terminal-image");
+            const img = await terminalImage.buffer(buffer);
+            setImage(img);
+          } catch {
+            setImage("Error displaying image");
+          }
+        })();
+      }, [data]);
+      return <Text>{image}</Text>;
+    };
+
     switch (entry.type) {
       case "user":
         return (
@@ -177,6 +196,8 @@ const MemoizedChatEntry = React.memo(
           entry.toolResult?.success &&
           !shouldShowDiff;
 
+        const isImageContent = entry.content.trim().startsWith("data:image");
+
         return (
           <Box key={index} flexDirection="column" marginTop={1}>
             <Box>
@@ -195,6 +216,11 @@ const MemoizedChatEntry = React.memo(
                   <Box marginLeft={2} flexDirection="column">
                     {renderFileContent(entry.content)}
                   </Box>
+                </Box>
+              ) : isImageContent ? (
+                <Box flexDirection="column">
+                  <Text color="gray">⎿</Text>
+                  <ImageRenderer data={entry.content.trim()} />
                 </Box>
               ) : shouldShowDiff ? (
                 // For diff results, show only the summary line, not the raw content

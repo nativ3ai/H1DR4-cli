@@ -401,14 +401,76 @@ This enables Linear tools like:
 - Update issue status and assignees
 - Access team and project information
 
+### Market Data Integration Example
+
+Fetch quotes for commodities, equities, indexes, RWAs, or crypto using a built-in market data MCP server powered by the [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/) API.
+
+The server ships with FMP's public `demo` API key so it works immediately, but the demo key is heavily rate limited. For reliable access create a free FMP key and expose it via the `FMP_API_KEY` environment variable.
+
+```bash
+# Add Market Data MCP server (uses demo API key by default)
+h1dr4 mcp add market-data
+
+# Add Market Data MCP server with your own API key
+h1dr4 mcp add market-data --api-key YOUR_KEY
+```
+
+This registers a `get-market-data` tool. Example invocation:
+
+```
+{ "category": "crypto", "symbol": "BTCUSD" }
+```
+
+Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own API key instead of the demo key.
+
+### Other Built-in Data Servers
+
+- **FRED economic data**: `h1dr4 mcp add fred` (set `FRED_API_KEY` for full access)
+- **RSS news feeds**: `h1dr4 mcp add rss` and manage feeds with `h1dr4 rss ...`
+- **Chart plotting**: `h1dr4 mcp add plot` to generate charts and view them inline via the `plot-data` tool
+
+### RSS Feed Management
+
+RSS feed URLs are stored in `~/.h1dr4/rss-feeds.json` and are automatically read by the RSS MCP server.
+
+```bash
+# Add a feed
+h1dr4 rss add myfeed https://example.com/rss
+
+# List feeds
+h1dr4 rss list
+
+# Remove a feed
+h1dr4 rss remove myfeed
+```
+
+### Scheduling Tasks
+
+```bash
+# Schedule a command using cron syntax
+h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
+
+# List scheduled tasks
+h1dr4 schedule list
+
+# Remove a task
+h1dr4 schedule remove TASK_ID
+```
+
 ### Managing MCP Servers
 
 ```bash
+# List available predefined servers
+h1dr4 mcp available
+
 # List all configured servers
 h1dr4 mcp list
 
 # Test server connection
 h1dr4 mcp test server-name
+
+# Enable a server
+h1dr4 mcp enable server-name
 
 # Remove a server
 h1dr4 mcp remove server-name
