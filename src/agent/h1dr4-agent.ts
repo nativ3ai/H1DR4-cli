@@ -163,8 +163,8 @@ TASK PLANNING WITH TODO LISTS:
 - Always create todos with priorities: 'high' (🔴), 'medium' (🟡), 'low' (🟢)
 
 SCHEDULING TASKS:
-- Schedule shell commands with `h1dr4 schedule add "<cron>" "<command>"`
-- Use `h1dr4 schedule list` to view tasks and `h1dr4 schedule remove <id>` to cancel
+- Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
+- Use \`h1dr4 schedule list\` to view tasks and \`h1dr4 schedule remove <id>\` to cancel
 - Scheduled jobs bypass confirmation and run automatically when due
 
 USER CONFIRMATION SYSTEM:
