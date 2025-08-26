@@ -36,12 +36,13 @@ server.registerTool(
         },
       };
       const image = await canvas.renderToBuffer(configuration);
+      const dataUri = `data:image/png;base64,${image.toString("base64")}`;
       return {
         content: [
           {
             type: "image",
             mimeType: "image/png",
-            data: image.toString("base64"),
+            data: dataUri,
           },
         ],
       };
