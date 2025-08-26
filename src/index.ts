@@ -9,10 +9,14 @@ import ChatInterface from "./ui/components/chat-interface";
 import { getSettingsManager } from "./utils/settings-manager";
 import { ConfirmationService } from "./utils/confirmation-service";
 import { createMCPCommand } from "./commands/mcp";
+import { createRSSCommand } from "./commands/rss";
+import { createScheduleCommand } from "./commands/schedule";
+import { startAllTasks } from "./schedule/runner";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
 // Load environment variables
 dotenv.config();
+startAllTasks();
 
 // Disable default SIGINT handling to let Ink handle Ctrl+C
 // We'll handle exit through the input system instead
@@ -441,5 +445,7 @@ gitCommand
 
 // MCP command
 program.addCommand(createMCPCommand());
+program.addCommand(createRSSCommand());
+program.addCommand(createScheduleCommand());
 
 program.parse();

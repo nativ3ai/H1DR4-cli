@@ -423,6 +423,38 @@ This registers a `get-market-data` tool. Example invocation:
 
 Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own API key instead of the demo key.
 
+### Other Built-in Data Servers
+
+- **FRED economic data**: `h1dr4 mcp add fred` (set `FRED_API_KEY` for full access)
+- **RSS news feeds**: `h1dr4 mcp add rss` and manage feeds with `h1dr4 rss ...`
+- **Chart plotting**: `h1dr4 mcp add plot` to enable saving PNG charts via the `plot-data` tool
+
+### RSS Feed Management
+
+```bash
+# Add a feed
+h1dr4 rss add myfeed https://example.com/rss
+
+# List feeds
+h1dr4 rss list
+
+# Remove a feed
+h1dr4 rss remove myfeed
+```
+
+### Scheduling Tasks
+
+```bash
+# Schedule a command using cron syntax
+h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
+
+# List scheduled tasks
+h1dr4 schedule list
+
+# Remove a task
+h1dr4 schedule remove TASK_ID
+```
+
 ### Managing MCP Servers
 
 ```bash

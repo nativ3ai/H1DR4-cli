@@ -24,11 +24,18 @@ export function createMCPCommand(): Command {
         // Check if it's a predefined server
         if (PREDEFINED_SERVERS[name]) {
           const config: MCPServerConfig = JSON.parse(JSON.stringify(PREDEFINED_SERVERS[name]));
-          if (name === 'market-data' && options.apiKey) {
-            config.transport = {
-              ...config.transport,
-              env: { ...(config.transport?.env || {}), FMP_API_KEY: options.apiKey },
-            };
+          if (options.apiKey) {
+            if (name === 'market-data') {
+              config.transport = {
+                ...config.transport,
+                env: { ...(config.transport?.env || {}), FMP_API_KEY: options.apiKey },
+              };
+            } else if (name === 'fred') {
+              config.transport = {
+                ...config.transport,
+                env: { ...(config.transport?.env || {}), FRED_API_KEY: options.apiKey },
+              };
+            }
           }
           addMCPServer(config);
           console.log(chalk.green(`✓ Added predefined MCP server: ${name}`));
