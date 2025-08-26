@@ -37,11 +37,12 @@ export function createMCPCommand(): Command {
           const manager = getMCPManager();
           await manager.addServer(config);
           console.log(chalk.green(`✓ Connected to MCP server: ${name}`));
-          
+
           const tools = manager.getTools().filter(t => t.serverName === name);
           console.log(chalk.blue(`  Available tools: ${tools.length}`));
-          
-          return;
+
+          await manager.shutdown();
+          process.exit(0);
         }
 
         // Custom server
@@ -99,10 +100,11 @@ export function createMCPCommand(): Command {
         const manager = getMCPManager();
         await manager.addServer(config);
         console.log(chalk.green(`✓ Connected to MCP server: ${name}`));
-        
+
         const tools = manager.getTools().filter(t => t.serverName === name);
         console.log(chalk.blue(`  Available tools: ${tools.length}`));
-
+        await manager.shutdown();
+        process.exit(0);
       } catch (error: any) {
         console.error(chalk.red(`Error adding MCP server: ${error.message}`));
         process.exit(1);
@@ -151,10 +153,11 @@ export function createMCPCommand(): Command {
         const manager = getMCPManager();
         await manager.addServer(serverConfig);
         console.log(chalk.green(`✓ Connected to MCP server: ${name}`));
-        
+
         const tools = manager.getTools().filter(t => t.serverName === name);
         console.log(chalk.blue(`  Available tools: ${tools.length}`));
-
+        await manager.shutdown();
+        process.exit(0);
       } catch (error: any) {
         console.error(chalk.red(`Error adding MCP server: ${error.message}`));
         process.exit(1);
@@ -193,10 +196,27 @@ export function createMCPCommand(): Command {
         console.log(chalk.green(`✓ Enabled MCP server: ${name}`));
         const tools = manager.getTools().filter(t => t.serverName === name);
         console.log(chalk.blue(`  Available tools: ${tools.length}`));
+
+        await manager.shutdown();
+        process.exit(0);
       } catch (error: any) {
         console.error(chalk.red(`Error enabling MCP server: ${error.message}`));
         process.exit(1);
       }
+    });
+
+  // List available predefined servers
+  mcpCommand
+    .command('available')
+    .description('List available predefined MCP servers')
+    .action(() => {
+      const names = Object.keys(PREDEFINED_SERVERS);
+      if (names.length === 0) {
+        console.log(chalk.yellow('No predefined MCP servers available'));
+        return;
+      }
+      console.log(chalk.bold('Available MCP servers:'));
+      names.forEach(name => console.log(`- ${name}`));
     });
 
   // List servers command
@@ -286,7 +306,8 @@ export function createMCPCommand(): Command {
             console.log(`    - ${displayName}: ${tool.description}`);
           });
         }
-
+        await manager.shutdown();
+        process.exit(0);
       } catch (error: any) {
         console.error(chalk.red(`✗ Failed to connect to ${name}: ${error.message}`));
         process.exit(1);

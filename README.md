@@ -426,6 +426,9 @@ Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own
 ### Managing MCP Servers
 
 ```bash
+# List available predefined servers
+h1dr4 mcp available
+
 # List all configured servers
 h1dr4 mcp list
 
