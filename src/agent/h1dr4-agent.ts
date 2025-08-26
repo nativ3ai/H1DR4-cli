@@ -162,6 +162,11 @@ TASK PLANNING WITH TODO LISTS:
 - Todo lists provide visual feedback with colors: ✅ Green (completed), 🔄 Cyan (in progress), ⏳ Yellow (pending)
 - Always create todos with priorities: 'high' (🔴), 'medium' (🟡), 'low' (🟢)
 
+SCHEDULING TASKS:
+- Schedule shell commands with `h1dr4 schedule add "<cron>" "<command>"`
+- Use `h1dr4 schedule list` to view tasks and `h1dr4 schedule remove <id>` to cancel
+- Scheduled jobs bypass confirmation and run automatically when due
+
 USER CONFIRMATION SYSTEM:
 File operations (create_file, str_replace_editor) and bash commands will automatically request user confirmation before execution. The confirmation system will show users the actual content or command before they decide. Users can choose to approve individual operations or approve all operations of that type for the session.
 
