@@ -13,10 +13,31 @@ import { createRSSCommand } from "./commands/rss";
 import { createScheduleCommand } from "./commands/schedule";
 import { startAllTasks } from "./schedule/runner";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 // Load environment variables
 dotenv.config();
 startAllTasks();
+
+const UI_PID_FILE = path.join(os.homedir(), ".h1dr4", "ui.pid");
+
+function writeUIPid(): void {
+  try {
+    fs.writeFileSync(UI_PID_FILE, String(process.pid));
+  } catch {
+    // ignore
+  }
+}
+
+function removeUIPid(): void {
+  try {
+    fs.unlinkSync(UI_PID_FILE);
+  } catch {
+    // ignore
+  }
+}
 
 // Disable default SIGINT handling to let Ink handle Ctrl+C
 // We'll handle exit through the input system instead
@@ -30,6 +51,7 @@ process.on("SIGTERM", () => {
       // Ignore errors when setting raw mode
     }
   }
+  removeUIPid();
   console.log("\nGracefully shutting down...");
   process.exit(0);
 });
@@ -373,6 +395,8 @@ program
       console.log("🤖 Starting H1dr4 CLI Conversational Assistant...\n");
 
       ensureUserSettingsDirectory();
+      writeUIPid();
+      process.on("exit", removeUIPid);
 
       render(React.createElement(ChatInterface, { agent }));
     } catch (error: any) {

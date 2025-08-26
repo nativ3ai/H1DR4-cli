@@ -456,6 +456,11 @@ h1dr4 schedule list
 h1dr4 schedule remove TASK_ID
 ```
 
+Scheduled tasks run even if the CLI is closed. A background daemon watches
+`~/.h1dr4/schedules.json` and launches the command at the specified time. If the
+chat interface is open, output is printed directly in the terminal. Otherwise,
+the daemon attempts to open a new terminal window to execute the command.
+
 ### Managing MCP Servers
 
 ```bash
