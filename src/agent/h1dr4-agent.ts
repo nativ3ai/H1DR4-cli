@@ -818,6 +818,8 @@ Current working directory: ${process.cwd()}`,
             return item.text;
           } else if (item.type === "resource") {
             return `Resource: ${item.resource?.uri || "Unknown"}`;
+          } else if (item.type === "image") {
+            return `data:${item.media_type};base64,${item.data}`;
           }
           return String(item);
         })

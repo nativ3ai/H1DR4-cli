@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
+import terminalImage from "terminal-image";
 import { ChatEntry } from "../../agent/h1dr4-agent";
 import { DiffRenderer } from "./diff-renderer";
 import { MarkdownRenderer } from "../utils/markdown-renderer";
@@ -55,6 +56,19 @@ const MemoizedChatEntry = React.memo(
           </Text>
         );
       });
+    };
+
+    const ImageRenderer = ({ data }: { data: string }) => {
+      const [image, setImage] = useState<string>("Loading image...");
+      useEffect(() => {
+        const base64 = data.split(",")[1];
+        const buffer = Buffer.from(base64, "base64");
+        terminalImage
+          .buffer(buffer)
+          .then(setImage)
+          .catch(() => setImage("Error displaying image"));
+      }, [data]);
+      return <Text>{image}</Text>;
     };
 
     switch (entry.type) {
@@ -177,6 +191,8 @@ const MemoizedChatEntry = React.memo(
           entry.toolResult?.success &&
           !shouldShowDiff;
 
+        const isImageContent = entry.content.trim().startsWith("data:image");
+
         return (
           <Box key={index} flexDirection="column" marginTop={1}>
             <Box>
@@ -195,6 +211,11 @@ const MemoizedChatEntry = React.memo(
                   <Box marginLeft={2} flexDirection="column">
                     {renderFileContent(entry.content)}
                   </Box>
+                </Box>
+              ) : isImageContent ? (
+                <Box flexDirection="column">
+                  <Text color="gray">⎿</Text>
+                  <ImageRenderer data={entry.content.trim()} />
                 </Box>
               ) : shouldShowDiff ? (
                 // For diff results, show only the summary line, not the raw content

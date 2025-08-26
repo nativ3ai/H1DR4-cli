@@ -427,9 +427,11 @@ Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own
 
 - **FRED economic data**: `h1dr4 mcp add fred` (set `FRED_API_KEY` for full access)
 - **RSS news feeds**: `h1dr4 mcp add rss` and manage feeds with `h1dr4 rss ...`
-- **Chart plotting**: `h1dr4 mcp add plot` to enable saving PNG charts via the `plot-data` tool
+- **Chart plotting**: `h1dr4 mcp add plot` to generate charts and view them inline via the `plot-data` tool
 
 ### RSS Feed Management
+
+RSS feed URLs are stored in `~/.h1dr4/rss-feeds.json` and are automatically read by the RSS MCP server.
 
 ```bash
 # Add a feed

@@ -13,6 +13,7 @@ export function loadRSSConfig(): Record<string, string> {
 }
 
 function saveRSSConfig(feeds: Record<string, string>): void {
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(feeds, null, 2));
 }
 

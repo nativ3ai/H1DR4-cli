@@ -4,8 +4,11 @@ import Parser from "rss-parser";
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
+import os from "os";
 
-const CONFIG_PATH = process.env.RSS_CONFIG || path.join(process.cwd(), "rss-feeds.json");
+const CONFIG_PATH =
+  process.env.RSS_CONFIG ||
+  path.join(os.homedir(), ".h1dr4", "rss-feeds.json");
 
 function loadFeeds(): Record<string, string> {
   try {

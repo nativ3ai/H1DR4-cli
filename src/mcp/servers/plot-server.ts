@@ -1,8 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
-import fs from "fs";
-import path from "path";
 import { z } from "zod";
 
 const server = new McpServer(
@@ -13,7 +11,7 @@ const server = new McpServer(
 server.registerTool(
   "plot-data",
   {
-    description: "Plot x and y data to a PNG file",
+    description: "Plot x and y data and return a PNG image",
     inputSchema: {
       x: z.array(z.number()).describe("X values"),
       y: z.array(z.number()).describe("Y values"),
@@ -38,14 +36,12 @@ server.registerTool(
         },
       };
       const image = await canvas.renderToBuffer(configuration);
-      const filename = `${title || "plot"}.png`;
-      const filepath = path.join(process.cwd(), filename);
-      fs.writeFileSync(filepath, image);
       return {
         content: [
           {
-            type: "text",
-            text: `Saved plot to ${filepath}`,
+            type: "image",
+            media_type: "image/png",
+            data: image.toString("base64"),
           },
         ],
       };
