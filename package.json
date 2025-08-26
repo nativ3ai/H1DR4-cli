@@ -38,8 +38,6 @@
     "ripgrep-node": "^1.0.0",
     "tiktoken": "^1.0.21",
     "zod": "^3.25.76",
-    "chart.js": "^4.4.1",
-    "chartjs-node-canvas": "^5.0.0",
     "node-schedule": "^2.1.1",
     "rss-parser": "^3.12.0",
     "terminal-image": "^2.0.0"

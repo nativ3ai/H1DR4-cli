@@ -427,7 +427,6 @@ Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own
 
 - **FRED economic data**: `h1dr4 mcp add fred` (set `FRED_API_KEY` for full access)
 - **RSS news feeds**: `h1dr4 mcp add rss` and manage feeds with `h1dr4 rss ...`
-- **Chart plotting**: `h1dr4 mcp add plot` to generate charts and view them inline via the `plot-data` tool
 
 ### RSS Feed Management
 

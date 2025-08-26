@@ -81,14 +81,6 @@ export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {
       },
     },
   },
-  plot: {
-    name: "plot",
-    transport: {
-      type: "stdio",
-      command: "node",
-      args: [path.join(__dirname, "servers", "plot-server.js")],
-    },
-  },
   rss: {
     name: "rss",
     transport: {
