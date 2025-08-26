@@ -405,6 +405,8 @@ This enables Linear tools like:
 
 Fetch quotes for commodities, equities, indexes, RWAs, or crypto using a built-in market data MCP server powered by the [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/) API.
 
+The server ships with FMP's public `demo` API key so it works immediately, but the demo key is heavily rate limited. For reliable access create a free FMP key and expose it via the `FMP_API_KEY` environment variable.
+
 ```bash
 # Add Market Data MCP server (uses demo API key by default)
 h1dr4 mcp add market-data
