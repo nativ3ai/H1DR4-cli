@@ -40,7 +40,7 @@ server.registerTool(
         content: [
           {
             type: "image",
-            media_type: "image/png",
+            mimeType: "image/png",
             data: image.toString("base64"),
           },
         ],

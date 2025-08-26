@@ -819,7 +819,7 @@ Current working directory: ${process.cwd()}`,
           } else if (item.type === "resource") {
             return `Resource: ${item.resource?.uri || "Unknown"}`;
           } else if (item.type === "image") {
-            return `data:${item.media_type};base64,${item.data}`;
+            return `data:${(item as any).mimeType};base64,${(item as any).data}`;
           }
           return String(item);
         })
