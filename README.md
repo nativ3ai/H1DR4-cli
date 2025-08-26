@@ -410,6 +410,9 @@ The server ships with FMP's public `demo` API key so it works immediately, but t
 ```bash
 # Add Market Data MCP server (uses demo API key by default)
 h1dr4 mcp add market-data
+
+# Add Market Data MCP server with your own API key
+h1dr4 mcp add market-data --api-key YOUR_KEY
 ```
 
 This registers a `get-market-data` tool. Example invocation:
@@ -418,7 +421,7 @@ This registers a `get-market-data` tool. Example invocation:
 { "category": "crypto", "symbol": "BTCUSD" }
 ```
 
-Set the `FMP_API_KEY` environment variable to use your own API key instead of the demo key.
+Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own API key instead of the demo key.
 
 ### Managing MCP Servers
 
@@ -428,6 +431,9 @@ h1dr4 mcp list
 
 # Test server connection
 h1dr4 mcp test server-name
+
+# Enable a server
+h1dr4 mcp enable server-name
 
 # Remove a server
 h1dr4 mcp remove server-name

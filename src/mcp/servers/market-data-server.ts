@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import axios from "axios";
 import { z } from "zod";
 
@@ -33,6 +33,16 @@ server.registerTool(
         ],
       };
     } catch (error: any) {
+      if (error.response?.status === 401) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Unauthorized: please set FMP_API_KEY environment variable with your Financial Modeling Prep API key",
+            },
+          ],
+        };
+      }
       return {
         content: [
           {

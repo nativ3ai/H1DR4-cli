@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS } from '../mcp/config';
+import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS, getMCPServer } from '../mcp/config';
 import { getMCPManager } from '../h1dr4/tools';
 import { MCPServerConfig } from '../mcp/client';
 import chalk from 'chalk';
@@ -18,11 +18,18 @@ export function createMCPCommand(): Command {
     .option('-u, --url <url>', 'URL for HTTP/SSE transport')
     .option('-h, --headers [headers...]', 'HTTP headers (key=value format)', [])
     .option('-e, --env [env...]', 'Environment variables (key=value format)', [])
+    .option('--api-key <key>', 'API key for predefined servers')
     .action(async (name: string, options) => {
       try {
         // Check if it's a predefined server
         if (PREDEFINED_SERVERS[name]) {
-          const config = PREDEFINED_SERVERS[name];
+          const config: MCPServerConfig = JSON.parse(JSON.stringify(PREDEFINED_SERVERS[name]));
+          if (name === 'market-data' && options.apiKey) {
+            config.transport = {
+              ...config.transport,
+              env: { ...(config.transport?.env || {}), FMP_API_KEY: options.apiKey },
+            };
+          }
           addMCPServer(config);
           console.log(chalk.green(`✓ Added predefined MCP server: ${name}`));
           
@@ -166,6 +173,28 @@ export function createMCPCommand(): Command {
         console.log(chalk.green(`✓ Removed MCP server: ${name}`));
       } catch (error: any) {
         console.error(chalk.red(`Error removing MCP server: ${error.message}`));
+        process.exit(1);
+      }
+    });
+
+  // Enable server command
+  mcpCommand
+    .command('enable <name>')
+    .description('Enable a configured MCP server')
+    .action(async (name: string) => {
+      try {
+        const config = getMCPServer(name);
+        if (!config) {
+          console.error(chalk.red(`Server ${name} not found`));
+          process.exit(1);
+        }
+        const manager = getMCPManager();
+        await manager.addServer(config);
+        console.log(chalk.green(`✓ Enabled MCP server: ${name}`));
+        const tools = manager.getTools().filter(t => t.serverName === name);
+        console.log(chalk.blue(`  Available tools: ${tools.length}`));
+      } catch (error: any) {
+        console.error(chalk.red(`Error enabling MCP server: ${error.message}`));
         process.exit(1);
       }
     });
