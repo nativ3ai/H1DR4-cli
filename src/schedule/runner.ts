@@ -8,7 +8,7 @@ import { ConfirmationService } from "../utils/confirmation-service";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
-let jobs: Record<string, schedule.Job> = {};
+let jobs: Record<string, any> = {};
 
 export function startAllTasks(): void {
   const tasks = loadSchedules();
@@ -20,11 +20,13 @@ export function startAllTasks(): void {
     jobs[task.id] = schedule.scheduleJob(task.cron, () => runTask(task));
   }
   if (!watcher) {
-    try {
-      watcher = fs.watch(CONFIG_FILE, () => startAllTasks());
-    } catch {
-      // ignore watcher errors
-    }
+    const dir = path.dirname(CONFIG_FILE);
+    fs.mkdirSync(dir, { recursive: true });
+    watcher = fs.watch(dir, (_event, filename) => {
+      if (filename === path.basename(CONFIG_FILE)) {
+        startAllTasks();
+      }
+    });
   }
 }
 
