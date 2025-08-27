@@ -164,8 +164,9 @@ TASK PLANNING WITH TODO LISTS:
 
 SCHEDULING TASKS:
 - Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
-- Use \`h1dr4 schedule list\` to view tasks and \`h1dr4 schedule remove <id>\` to cancel
-- Scheduled jobs bypass confirmation and run automatically when due
+- Use \`h1dr4 schedule list\` to view existing tasks
+- Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
+- Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation
 
 USER CONFIRMATION SYSTEM:
 File operations (create_file, str_replace_editor) and bash commands will automatically request user confirmation before execution. The confirmation system will show users the actual content or command before they decide. Users can choose to approve individual operations or approve all operations of that type for the session.
