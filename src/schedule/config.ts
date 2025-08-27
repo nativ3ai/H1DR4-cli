@@ -19,6 +19,7 @@ export function loadSchedules(): ScheduledTask[] {
 }
 
 export function saveSchedules(tasks: ScheduledTask[]): void {
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(tasks, null, 2));
 }
 

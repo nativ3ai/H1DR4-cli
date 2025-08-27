@@ -33,6 +33,8 @@ try {
   // ignore watch errors
 }
 
+process.on("SIGUSR1", startAllTasks);
+
 process.on("exit", removePid);
 process.on("SIGINT", () => {
   removePid();

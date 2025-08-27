@@ -20,6 +20,7 @@ import os from "os";
 // Load environment variables
 dotenv.config();
 startAllTasks();
+process.on("SIGUSR1", startAllTasks);
 
 const UI_PID_FILE = path.join(os.homedir(), ".h1dr4", "ui.pid");
 

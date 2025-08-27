@@ -1,7 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { addSchedule, loadSchedules, removeSchedule } from "../schedule/config";
-import { startAllTasks } from "../schedule/runner";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import fs from "fs";
@@ -19,8 +18,7 @@ export function createScheduleCommand(): Command {
       const command = cmd.join(" ");
       const task = { id: randomUUID(), cron, command };
       addSchedule(task);
-      startAllTasks();
-      ensureDaemonRunning();
+      reloadSchedulers();
       console.log(chalk.green(`✓ Scheduled task ${task.id}`));
     });
 
@@ -42,8 +40,7 @@ export function createScheduleCommand(): Command {
     .description("Remove a scheduled task")
     .action((id: string) => {
       removeSchedule(id);
-      startAllTasks();
-      ensureDaemonRunning();
+      reloadSchedulers();
       console.log(chalk.green(`✓ Removed task ${id}`));
     });
 
@@ -53,6 +50,23 @@ export function createScheduleCommand(): Command {
 const PID_FILE = path.join(os.homedir(), ".h1dr4", "schedule.pid");
 const UI_PID_FILE = path.join(os.homedir(), ".h1dr4", "ui.pid");
 const DAEMON_PATH = path.join(__dirname, "../schedule/daemon.js");
+
+function reloadSchedulers(): void {
+  let notified = false;
+  try {
+    const uiPid = parseInt(fs.readFileSync(UI_PID_FILE, "utf8"), 10);
+    process.kill(uiPid, "SIGUSR1");
+    notified = true;
+  } catch {}
+  try {
+    const pid = parseInt(fs.readFileSync(PID_FILE, "utf8"), 10);
+    process.kill(pid, "SIGUSR1");
+    notified = true;
+  } catch {}
+  if (!notified) {
+    ensureDaemonRunning();
+  }
+}
 
 function ensureDaemonRunning(): void {
   try {
