@@ -310,6 +310,48 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "polymarket",
+      description:
+        "Interact with Polymarket APIs for market data, positions and trading",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: [
+              "get_markets",
+              "get_positions",
+              "place_order",
+              "find_wide_spreads",
+            ],
+            description: "Type of operation to perform",
+          },
+          user: { type: "string", description: "User address for position queries" },
+          market: { type: "string", description: "Market identifier" },
+          outcome: { type: "string", description: "Outcome identifier" },
+          side: {
+            type: "string",
+            enum: ["buy", "sell"],
+            description: "Order side for trading",
+          },
+          size: { type: "number", description: "Token size for orders" },
+          price: { type: "number", description: "Price for orders" },
+          minLiquidity: {
+            type: "number",
+            description: "Minimum liquidity when searching spreads",
+          },
+          threshold: {
+            type: "number",
+            description: "Spread threshold when searching spreads",
+          },
+        },
+        required: ["action"],
+      },
+    },
+  },
 ];
 
 // Morph Fast Apply tool (conditional)
