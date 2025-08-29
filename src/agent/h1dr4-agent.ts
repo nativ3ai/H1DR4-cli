@@ -16,6 +16,7 @@ import {
   SearchTool,
   OSINTTool,
   ReasoningWorker,
+  PolymarketTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -52,6 +53,7 @@ export class H1dr4Agent extends EventEmitter {
   private search: SearchTool;
   private osint: OSINTTool;
   private reasoningWorker: ReasoningWorker;
+  private polymarket: PolymarketTool;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -89,6 +91,7 @@ export class H1dr4Agent extends EventEmitter {
     this.search = new SearchTool();
     this.osint = new OSINTTool();
     this.reasoningWorker = new ReasoningWorker();
+    this.polymarket = new PolymarketTool();
     this.tokenCounter = createTokenCounter(modelToUse);
 
     // Initialize MCP servers if configured
@@ -120,6 +123,20 @@ You have access to these tools:
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
 - live_search: Search real-time web, news, and X posts using Grok's live search
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
+- polymarket: Access Polymarket markets, positions and execute trades
+
+POLYMARKET STRATEGY SUITE:
+ 1. Cross-market arbitrage – exploit price discrepancies across equivalent markets
+ 2. LP to market pools – capture fees in wide-spread markets with delta-neutral liquidity
+ 3. Bayesian updating vs market lag – act on new information faster than prices adjust
+ 4. Trade the oracle – anticipate resolution source behavior and biases
+ 5. Reflexivity farming – take positions that incentivize actions shaping outcomes
+ 6. Use odds to trade perps – convert prediction odds into signals for other assets
+ 7. Front-run attention for token plays – spot narrative momentum early via market activity
+ 8. Synthetic options – treat markets like options to trade volatility and time decay
+ 9. Construct your own parlay – combine markets for targeted exposure or hedging
+ 10. Tax harvesting – realize losses for regulatory advantages where applicable
+ 11. Trade infrastructure tokens – leverage platform health metrics for token positioning
 
 REASONING WORKER BEST PRACTICES:
  - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, or complex synthesis of multiple news sources
@@ -783,6 +800,9 @@ Current working directory: ${process.cwd()}`,
           ]);
 
           return reasoningResult;
+
+        case "polymarket":
+          return await this.polymarket.execute(args.action, args);
 
         default:
           // Check if this is an MCP tool

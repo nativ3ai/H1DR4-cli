@@ -11,6 +11,7 @@ import { ConfirmationService } from "./utils/confirmation-service";
 import { createMCPCommand } from "./commands/mcp";
 import { createRSSCommand } from "./commands/rss";
 import { createScheduleCommand } from "./commands/schedule";
+import { createPolymarketCommand } from "./commands/polymarket";
 import { startAllTasks } from "./schedule/runner";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 import fs from "fs";
@@ -472,5 +473,6 @@ gitCommand
 program.addCommand(createMCPCommand());
 program.addCommand(createRSSCommand());
 program.addCommand(createScheduleCommand());
+program.addCommand(createPolymarketCommand());
 
 program.parse();
