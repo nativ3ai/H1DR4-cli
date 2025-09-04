@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import Parser from "rss-parser";
 import { ScheduledTask, ImpactLevel } from "./config";
 import { loadWatchState, saveWatchState } from "./state";
 
@@ -14,28 +15,58 @@ function detectContractAddress(text: string): string | undefined {
 }
 
 async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
-  // Placeholder for event detection logic integrating RSS, MCP, etc.
-  const keywords = task.watch?.keywords?.join(", ");
-  const tickers = task.watch?.tickers?.join(", ");
-  const sources = task.watch?.sources?.join(", ");
-  if (!keywords && !tickers && !sources) {
-    return [];
+  const parser = new Parser();
+  const items: WatchItem[] = [];
+
+  const keywords = task.watch?.keywords?.map((k) => k.toLowerCase());
+  const tickers = task.watch?.tickers?.map((t) => t.toLowerCase());
+  const sources = task.watch?.sources || [];
+
+  if (sources.length === 0) return items;
+
+  for (const rawSource of sources) {
+    const handle = rawSource.replace(/^@/, "");
+    const url = `https://nitter.net/${handle}/rss`;
+    try {
+      const feed = await parser.parseURL(url);
+      for (const entry of feed.items || []) {
+        const content = `${entry.title || ""} ${
+          entry.contentSnippet || ""
+        }`.trim();
+        const lower = content.toLowerCase();
+
+        const matchesKeyword = keywords
+          ? keywords.some((k) => lower.includes(k))
+          : false;
+        const matchesTicker = tickers
+          ? tickers.some((t) => lower.includes(t))
+          : false;
+        const contract = detectContractAddress(content);
+
+        if (keywords || tickers) {
+          if (!matchesKeyword && !matchesTicker && !contract) continue;
+        } else if (!contract) {
+          continue;
+        }
+
+        const meta: Record<string, string> = { source: rawSource };
+        if (entry.link) meta.link = entry.link;
+        if (contract) meta.contractAddress = contract;
+
+        items.push({
+          id: entry.id || entry.guid || entry.link || entry.pubDate || content,
+          summary: content || "New post",
+          metadata: meta,
+        });
+      }
+    } catch (error) {
+      console.warn(
+        `Failed to fetch source ${rawSource}: ${(error as Error).message}`
+      );
+    }
   }
-  const meta: Record<string, string> = {};
-  if (keywords) meta.keywords = keywords;
-  if (tickers) meta.tickers = tickers;
-  if (sources) meta.sources = sources;
-  // Simulate a detected summary
-  const summary = `Detected event for ${keywords || tickers || sources}`;
-  const contract = detectContractAddress(summary);
-  if (contract) meta.contractAddress = contract;
-  return [
-    {
-      id: Date.now().toString(),
-      summary,
-      metadata: meta,
-    },
-  ];
+
+  return items;
 }
 
 function analyzeImpact(item: WatchItem): ImpactLevel {
