@@ -33,6 +33,7 @@ export function createScheduleCommand(): Command {
     .option("-t, --ticker <ticker...>", "Tickers to monitor")
     .option("-k, --keyword <keyword...>", "Keywords to monitor")
     .option("-s, --source <source...>", "Sources or accounts to monitor")
+    .option("-c, --criteria <criteria>", "Evaluation criteria for alerts")
     .option(
       "--threshold <level>",
       "Alert threshold (Low|Mid-High|High)",
@@ -45,6 +46,7 @@ export function createScheduleCommand(): Command {
           ticker?: string[];
           keyword?: string[];
           source?: string[];
+          criteria?: string;
           threshold: ImpactLevel;
         }
       ) => {
@@ -52,6 +54,7 @@ export function createScheduleCommand(): Command {
           tickers: options.ticker,
           keywords: options.keyword,
           sources: options.source,
+          criteria: options.criteria,
           threshold: options.threshold,
         };
         const task = { id: randomUUID(), cron, watch };

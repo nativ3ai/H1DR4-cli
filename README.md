@@ -450,7 +450,7 @@ h1dr4 rss remove myfeed
 h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
 
 # Schedule a watch-based alert
-h1dr4 schedule watch "*/5 * * * *" -t BTC -k "Fed policy" -s trump --threshold Mid-High
+h1dr4 schedule watch "*/5 * * * *" -t BTC -k "Fed policy" -s trump -c "policy news that could move BTC" --threshold Mid-High
 
 # List scheduled tasks
 h1dr4 schedule list
@@ -465,11 +465,10 @@ Scheduled tasks run even if the CLI is closed. A background daemon watches
 Watch tasks execute a full H1DR4 query using all available tools (search,
 RSS, reasoning, etc.). Each interval retrieves only new items for the
 requested tickers, keywords, or sources. Results are deduplicated, evaluated
-against the configured impact threshold, and alerts are emitted only when the
-analysis meets or exceeds that level. The watcher also flags any 0x‑style
-contract addresses it discovers. If the chat interface is open, output is
-printed directly in the terminal; otherwise, the daemon attempts to open a new
-terminal window to display the alert.
+against your provided criteria and impact threshold, and alerts are emitted
+only when the analysis meets or exceeds that level. If the chat interface is
+open, output is printed directly in the terminal; otherwise, the daemon
+attempts to open a new terminal window to display the alert.
 
 ### Managing MCP Servers
 

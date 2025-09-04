@@ -8,6 +8,7 @@ export interface WatchConfig {
   tickers?: string[];
   keywords?: string[];
   sources?: string[];
+  criteria?: string;
   threshold?: ImpactLevel;
 }
 

@@ -9,11 +9,6 @@ interface WatchItem {
   metadata: Record<string, string>;
 }
 
-function detectContractAddress(text: string): string | undefined {
-  const match = text.match(/0x[a-fA-F0-9]{40}/);
-  return match ? match[0] : undefined;
-}
-
 async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
   const apiKey = process.env.GROK_API_KEY;
   if (!apiKey) {
@@ -67,11 +62,9 @@ async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
     const lines = content.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     const items: WatchItem[] = [];
     for (const line of lines) {
-      const contract = detectContractAddress(line);
       const meta: Record<string, string> = {};
       const urlMatch = line.match(/https?:\/\/\S+/);
       if (urlMatch) meta.link = urlMatch[0];
-      if (contract) meta.contractAddress = contract;
       items.push({ id: line, summary: line, metadata: meta });
     }
     return items;
@@ -81,13 +74,39 @@ async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
   }
 }
 
-function analyzeImpact(item: WatchItem): ImpactLevel {
-  const lower = item.summary.toLowerCase();
-  if (item.metadata.contractAddress) return "High";
-  if (lower.includes("trump") || lower.includes("fed")) {
-    return "Mid-High";
+async function analyzeImpact(
+  item: WatchItem,
+  task: ScheduledTask
+): Promise<ImpactLevel> {
+  const criteria = task.watch?.criteria;
+  if (!criteria) return "High";
+  const apiKey = process.env.GROK_API_KEY;
+  if (!apiKey) return "Low";
+  const client = new H1dr4Client(
+    apiKey,
+    process.env.H1DR4_MODEL,
+    process.env.GROK_BASE_URL
+  );
+  const messages: H1dr4Message[] = [
+    {
+      role: "system",
+      content:
+        "You rate whether an item meets the user's alert criteria. Respond with only one of: Low, Mid-High, High.",
+    },
+    {
+      role: "user",
+      content: `Criteria: ${criteria}\nItem: ${item.summary}`,
+    },
+  ];
+  try {
+    const resp = await client.chat(messages);
+    const text = resp.choices[0]?.message.content?.toLowerCase() || "";
+    if (text.includes("mid")) return "Mid-High";
+    if (text.includes("high")) return "High";
+    return "Low";
+  } catch {
+    return "Low";
   }
-  return "Low";
 }
 
 export async function runWatchTask(task: ScheduledTask): Promise<void> {
@@ -99,7 +118,7 @@ export async function runWatchTask(task: ScheduledTask): Promise<void> {
   const threshold = task.watch?.threshold || "Low";
   const levels: Record<ImpactLevel, number> = { Low: 1, "Mid-High": 2, High: 3 };
   for (const item of unseen) {
-    const impact = analyzeImpact(item);
+    const impact = await analyzeImpact(item, task);
     if (levels[impact] >= levels[threshold]) {
       console.log(
         chalk.yellow(
