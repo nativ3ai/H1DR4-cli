@@ -165,6 +165,8 @@ TASK PLANNING WITH TODO LISTS:
 SCHEDULING TASKS:
 - Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
 - Use \`h1dr4 schedule list\` to view existing tasks
+- Use \`h1dr4 schedule alert "<cron>" "<command>" --criteria "<pattern>"\` to set up an alert that runs the command at the given interval and triggers an ALERT 🚨 message when output matches the criteria
+- View past alerts with \`h1dr4 schedule alerts\`; duplicates are automatically suppressed
 - Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
 - Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation
 
