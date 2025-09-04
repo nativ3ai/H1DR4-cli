@@ -460,13 +460,16 @@ h1dr4 schedule remove TASK_ID
 ```
 
 Scheduled tasks run even if the CLI is closed. A background daemon watches
-`~/.h1dr4/schedules.json` and launches the command at the specified time. Watch
-tasks build live search queries from the requested tickers, keywords, or
-sources and only alert when the analyzed impact meets your chosen threshold.
-Each run deduplicates previously seen results and flags posts containing
-0x‑style contract addresses. If the chat interface is open, output is printed
-directly in the terminal. Otherwise, the daemon attempts to open a new terminal
-window to execute the command.
+`~/.h1dr4/schedules.json` and launches the command at the specified time.
+
+Watch tasks execute a full H1DR4 query using all available tools (search,
+RSS, reasoning, etc.). Each interval retrieves only new items for the
+requested tickers, keywords, or sources. Results are deduplicated, evaluated
+against the configured impact threshold, and alerts are emitted only when the
+analysis meets or exceeds that level. The watcher also flags any 0x‑style
+contract addresses it discovers. If the chat interface is open, output is
+printed directly in the terminal; otherwise, the daemon attempts to open a new
+terminal window to display the alert.
 
 ### Managing MCP Servers
 

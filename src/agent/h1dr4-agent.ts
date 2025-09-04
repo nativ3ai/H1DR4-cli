@@ -164,9 +164,9 @@ TASK PLANNING WITH TODO LISTS:
 
 SCHEDULING TASKS:
 - Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
-- Create watch-based alerts with \`h1dr4 schedule watch "<cron>" -t <tickers> -k <keywords> --threshold <Low|Mid-High|High>\`
-  - Ask for a cron interval, tickers or keywords to monitor, and an impact threshold (defaults to High)
-  - The scheduler checks for new items and triggers alerts only when the impact meets the threshold
+- Create watch-based alerts with \`h1dr4 schedule watch "<cron>" -t <tickers> -k <keywords> -s <sources> --threshold <Low|Mid-High|High>\`
+  - Ask for a cron interval, tickers/keywords/sources to monitor, and an impact threshold (defaults to High)
+  - The scheduler runs a full query using available tools (search, reasoning, RSS, etc.), deduplicates results, and only alerts when new items meet the threshold
 - Use \`h1dr4 schedule list\` to view existing tasks
 - Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
 - Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation

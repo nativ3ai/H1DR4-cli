@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { H1dr4Client } from "../h1dr4/client";
+import { H1dr4Client, H1dr4Message } from "../h1dr4/client";
 import { ScheduledTask, ImpactLevel } from "./config";
 import { loadWatchState, saveWatchState } from "./state";
 
@@ -31,23 +31,38 @@ async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
   const tickers = task.watch?.tickers || [];
   const sources = task.watch?.sources || [];
 
-  const queryParts: string[] = [];
-  queryParts.push(
-    ...keywords,
-    ...tickers.map((t) => `$${t}`),
-    ...sources.map((s) => `from:${s.replace(/^@/, "")}`)
-  );
-
-  if (queryParts.length === 0) {
+  if (
+    keywords.length === 0 &&
+    tickers.length === 0 &&
+    sources.length === 0
+  ) {
     return [];
   }
 
-  const query = queryParts.join(" ");
+  const watchDescription = [
+    tickers.length ? `Tickers: ${tickers.join(", ")}` : undefined,
+    keywords.length ? `Keywords: ${keywords.join(", ")}` : undefined,
+    sources.length ? `Sources: ${sources.join(", ")}` : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const messages: H1dr4Message[] = [
+    {
+      role: "system",
+      content:
+        "You are an event detection agent. Use any tools at your disposal (live_search, RSS, reasoning) to find the latest public posts or news that match the user's watchlist. Return each distinct item on its own line with a brief summary and link if available.",
+    },
+    {
+      role: "user",
+      content: `${watchDescription}\nReturn only new items discovered during this run.`,
+    },
+  ];
+
   try {
-    const response = await client.search(query, {
-      mode: "on",
-      max_search_results: 10,
-    } as any);
+    const response = await client.chat(messages, [], undefined, {
+      search_parameters: { mode: "on", max_search_results: 10 },
+    });
     const content = response.choices[0]?.message.content || "";
     const lines = content.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     const items: WatchItem[] = [];
@@ -61,7 +76,7 @@ async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
     }
     return items;
   } catch (error) {
-    console.warn(`Live search failed: ${(error as Error).message}`);
+    console.warn(`Query failed: ${(error as Error).message}`);
     return [];
   }
 }
