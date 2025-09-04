@@ -449,6 +449,9 @@ h1dr4 rss remove myfeed
 # Schedule a command using cron syntax
 h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
 
+# Schedule a watch-based alert
+h1dr4 schedule watch "*/5 * * * *" -t BTC -k "Fed policy" --threshold Mid-High
+
 # List scheduled tasks
 h1dr4 schedule list
 
@@ -457,7 +460,7 @@ h1dr4 schedule remove TASK_ID
 ```
 
 Scheduled tasks run even if the CLI is closed. A background daemon watches
-`~/.h1dr4/schedules.json` and launches the command at the specified time. If the
+`~/.h1dr4/schedules.json` and launches the command at the specified time. Watch tasks check for new items and only alert when the impact meets your chosen threshold. If the
 chat interface is open, output is printed directly in the terminal. Otherwise,
 the daemon attempts to open a new terminal window to execute the command.
 
