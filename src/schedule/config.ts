@@ -7,6 +7,7 @@ export type ImpactLevel = "Low" | "Mid-High" | "High";
 export interface WatchConfig {
   tickers?: string[];
   keywords?: string[];
+  sources?: string[];
   threshold?: ImpactLevel;
 }
 
