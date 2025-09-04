@@ -5,6 +5,7 @@ import path from "path";
 import os from "os";
 import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
+import { runWatchTask } from "./watch";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -17,7 +18,9 @@ export function startAllTasks(): void {
   }
   jobs = {};
   for (const task of tasks) {
-    jobs[task.id] = schedule.scheduleJob(task.cron, () => runTask(task));
+    jobs[task.id] = schedule.scheduleJob(task.cron, () => {
+      void runTask(task);
+    });
   }
   if (!watcher) {
     const dir = path.dirname(CONFIG_FILE);
@@ -43,13 +46,19 @@ function spawnInTerminal(command: string): void {
   }
 }
 
-function runTask(task: ScheduledTask): void {
+async function runTask(task: ScheduledTask): Promise<void> {
   const confirmationService = ConfirmationService.getInstance();
   confirmationService.setSessionFlag("allOperations", true);
-  if (process.stdout.isTTY) {
-    spawn(task.command, { shell: true, stdio: "inherit" });
-  } else {
-    // no TTY, open in new terminal
-    spawnInTerminal(task.command);
+  if (task.watch) {
+    await runWatchTask(task);
+    return;
+  }
+  if (task.command) {
+    if (process.stdout.isTTY) {
+      spawn(task.command, { shell: true, stdio: "inherit" });
+    } else {
+      // no TTY, open in new terminal
+      spawnInTerminal(task.command);
+    }
   }
 }

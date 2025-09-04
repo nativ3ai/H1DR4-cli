@@ -1,6 +1,11 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import { addSchedule, loadSchedules, removeSchedule } from "../schedule/config";
+import {
+  addSchedule,
+  loadSchedules,
+  removeSchedule,
+  ImpactLevel,
+} from "../schedule/config";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import fs from "fs";
@@ -23,6 +28,37 @@ export function createScheduleCommand(): Command {
     });
 
   scheduleCommand
+    .command("watch <cron>")
+    .description("Schedule an event watchlist")
+    .option("-t, --ticker <ticker...>", "Tickers to monitor")
+    .option("-k, --keyword <keyword...>", "Keywords to monitor")
+    .option(
+      "--threshold <level>",
+      "Alert threshold (Low|Mid-High|High)",
+      "High"
+    )
+    .action(
+      (
+        cron: string,
+        options: {
+          ticker?: string[];
+          keyword?: string[];
+          threshold: ImpactLevel;
+        }
+      ) => {
+        const watch = {
+          tickers: options.ticker,
+          keywords: options.keyword,
+          threshold: options.threshold,
+        };
+        const task = { id: randomUUID(), cron, watch };
+        addSchedule(task);
+        reloadSchedulers();
+        console.log(chalk.green(`✓ Scheduled watch ${task.id}`));
+      }
+    );
+
+  scheduleCommand
     .command("list")
     .description("List scheduled tasks")
     .action(() => {
@@ -32,7 +68,13 @@ export function createScheduleCommand(): Command {
         return;
       }
       console.log(chalk.bold("Scheduled tasks:"));
-      tasks.forEach((t) => console.log(`${t.id}: ${t.cron} -> ${t.command}`));
+      tasks.forEach((t) => {
+        if (t.watch) {
+          console.log(`${t.id}: ${t.cron} -> watch`);
+        } else if (t.command) {
+          console.log(`${t.id}: ${t.cron} -> ${t.command}`);
+        }
+      });
     });
 
   scheduleCommand

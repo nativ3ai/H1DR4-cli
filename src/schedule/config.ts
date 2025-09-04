@@ -2,10 +2,19 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
+export type ImpactLevel = "Low" | "Mid-High" | "High";
+
+export interface WatchConfig {
+  tickers?: string[];
+  keywords?: string[];
+  threshold?: ImpactLevel;
+}
+
 export interface ScheduledTask {
   id: string;
   cron: string;
-  command: string;
+  command?: string;
+  watch?: WatchConfig;
 }
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
