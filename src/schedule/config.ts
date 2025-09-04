@@ -2,10 +2,14 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
+export type ScheduleType = "command" | "alert";
+
 export interface ScheduledTask {
   id: string;
   cron: string;
   command: string;
+  type?: ScheduleType;
+  criteria?: string;
 }
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");

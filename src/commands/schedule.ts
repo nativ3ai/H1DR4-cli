@@ -6,6 +6,7 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { loadAlerts } from "../schedule/alerts";
 
 export function createScheduleCommand(): Command {
   const scheduleCommand = new Command("schedule");
@@ -23,6 +24,24 @@ export function createScheduleCommand(): Command {
     });
 
   scheduleCommand
+    .command("alert <cron> <cmd...>")
+    .requiredOption("-c, --criteria <criteria>", "Criteria to match")
+    .description("Schedule a command that triggers alerts when output matches criteria")
+    .action((cron: string, cmd: string[], options: { criteria: string }) => {
+      const command = cmd.join(" ");
+      const task = {
+        id: randomUUID(),
+        cron,
+        command,
+        type: "alert" as const,
+        criteria: options.criteria,
+      };
+      addSchedule(task);
+      reloadSchedulers();
+      console.log(chalk.green(`✓ Scheduled alert ${task.id}`));
+    });
+
+  scheduleCommand
     .command("list")
     .description("List scheduled tasks")
     .action(() => {
@@ -32,7 +51,29 @@ export function createScheduleCommand(): Command {
         return;
       }
       console.log(chalk.bold("Scheduled tasks:"));
-      tasks.forEach((t) => console.log(`${t.id}: ${t.cron} -> ${t.command}`));
+      tasks.forEach((t) => {
+        if (t.type === "alert") {
+          console.log(`${t.id}: ${t.cron} -> ${t.command} [alert: ${t.criteria}]`);
+        } else {
+          console.log(`${t.id}: ${t.cron} -> ${t.command}`);
+        }
+      });
+    });
+
+  scheduleCommand
+    .command("alerts")
+    .description("Show triggered alerts")
+    .action(() => {
+      const alerts = loadAlerts();
+      const entries = Object.entries(alerts);
+      if (entries.length === 0) {
+        console.log(chalk.yellow("No alerts triggered"));
+        return;
+      }
+      console.log(chalk.bold("Triggered alerts:"));
+      for (const [, messages] of entries) {
+        messages.forEach((m) => console.log(`ALERT 🚨 ${m}`));
+      }
     });
 
   scheduleCommand

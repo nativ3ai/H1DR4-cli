@@ -1,10 +1,11 @@
 import schedule from "node-schedule";
-import { spawn } from "child_process";
+import { spawn, exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
+import { isAlertLogged, logAlert } from "./alerts";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -46,10 +47,27 @@ function spawnInTerminal(command: string): void {
 function runTask(task: ScheduledTask): void {
   const confirmationService = ConfirmationService.getInstance();
   confirmationService.setSessionFlag("allOperations", true);
+  if (task.type === "alert") {
+    runAlertTask(task);
+    return;
+  }
   if (process.stdout.isTTY) {
     spawn(task.command, { shell: true, stdio: "inherit" });
   } else {
     // no TTY, open in new terminal
     spawnInTerminal(task.command);
   }
+}
+
+function runAlertTask(task: ScheduledTask): void {
+  exec(task.command, (_error, stdout, stderr) => {
+    const output = (stdout + stderr).trim();
+    const criteria = task.criteria || "";
+    if (criteria && output.toLowerCase().includes(criteria.toLowerCase())) {
+      if (!isAlertLogged(task.id, output)) {
+        logAlert(task.id, output);
+        console.log(`ALERT 🚨 ${output}`);
+      }
+    }
+  });
 }
