@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import Parser from "rss-parser";
+import { H1dr4Client } from "../h1dr4/client";
 import { ScheduledTask, ImpactLevel } from "./config";
 import { loadWatchState, saveWatchState } from "./state";
 
@@ -15,64 +15,61 @@ function detectContractAddress(text: string): string | undefined {
 }
 
 async function fetchNewItems(task: ScheduledTask): Promise<WatchItem[]> {
-  const parser = new Parser();
-  const items: WatchItem[] = [];
-
-  const keywords = task.watch?.keywords?.map((k) => k.toLowerCase());
-  const tickers = task.watch?.tickers?.map((t) => t.toLowerCase());
-  const sources = task.watch?.sources || [];
-
-  if (sources.length === 0) return items;
-
-  for (const rawSource of sources) {
-    const handle = rawSource.replace(/^@/, "");
-    const url = `https://nitter.net/${handle}/rss`;
-    try {
-      const feed = await parser.parseURL(url);
-      for (const entry of feed.items || []) {
-        const content = `${entry.title || ""} ${
-          entry.contentSnippet || ""
-        }`.trim();
-        const lower = content.toLowerCase();
-
-        const matchesKeyword = keywords
-          ? keywords.some((k) => lower.includes(k))
-          : false;
-        const matchesTicker = tickers
-          ? tickers.some((t) => lower.includes(t))
-          : false;
-        const contract = detectContractAddress(content);
-
-        if (keywords || tickers) {
-          if (!matchesKeyword && !matchesTicker && !contract) continue;
-        } else if (!contract) {
-          continue;
-        }
-
-        const meta: Record<string, string> = { source: rawSource };
-        if (entry.link) meta.link = entry.link;
-        if (contract) meta.contractAddress = contract;
-
-        items.push({
-          id: entry.id || entry.guid || entry.link || entry.pubDate || content,
-          summary: content || "New post",
-          metadata: meta,
-        });
-      }
-    } catch (error) {
-      console.warn(
-        `Failed to fetch source ${rawSource}: ${(error as Error).message}`
-      );
-    }
+  const apiKey = process.env.GROK_API_KEY;
+  if (!apiKey) {
+    console.warn("GROK_API_KEY not set; skipping watch task");
+    return [];
   }
 
-  return items;
+  const client = new H1dr4Client(
+    apiKey,
+    process.env.H1DR4_MODEL,
+    process.env.GROK_BASE_URL
+  );
+
+  const keywords = task.watch?.keywords || [];
+  const tickers = task.watch?.tickers || [];
+  const sources = task.watch?.sources || [];
+
+  const queryParts: string[] = [];
+  queryParts.push(
+    ...keywords,
+    ...tickers.map((t) => `$${t}`),
+    ...sources.map((s) => `from:${s.replace(/^@/, "")}`)
+  );
+
+  if (queryParts.length === 0) {
+    return [];
+  }
+
+  const query = queryParts.join(" ");
+  try {
+    const response = await client.search(query, {
+      mode: "on",
+      max_search_results: 10,
+    } as any);
+    const content = response.choices[0]?.message.content || "";
+    const lines = content.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const items: WatchItem[] = [];
+    for (const line of lines) {
+      const contract = detectContractAddress(line);
+      const meta: Record<string, string> = {};
+      const urlMatch = line.match(/https?:\/\/\S+/);
+      if (urlMatch) meta.link = urlMatch[0];
+      if (contract) meta.contractAddress = contract;
+      items.push({ id: line, summary: line, metadata: meta });
+    }
+    return items;
+  } catch (error) {
+    console.warn(`Live search failed: ${(error as Error).message}`);
+    return [];
+  }
 }
 
 function analyzeImpact(item: WatchItem): ImpactLevel {
-  const keywords = item.metadata.keywords?.toLowerCase() || "";
+  const lower = item.summary.toLowerCase();
   if (item.metadata.contractAddress) return "High";
-  if (keywords.includes("trump") || keywords.includes("fed")) {
+  if (lower.includes("trump") || lower.includes("fed")) {
     return "Mid-High";
   }
   return "Low";
