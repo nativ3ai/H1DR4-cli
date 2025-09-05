@@ -62,9 +62,10 @@ function runTask(task: ScheduledTask): void {
 }
 
 function spawnAlertWindow(message: string): void {
+  const duration = process.env.H1DR4_ALERT_DURATION || "30000";
   const nodeCmd = `${process.execPath} -e "console.log(${JSON.stringify(
     "ALERT 🚨 " + message,
-  )}); setInterval(()=>{}, 1e8)"`;
+  )}); setTimeout(()=>process.exit(0), ${duration})"`;
   spawnInTerminal(nodeCmd);
 }
 
@@ -75,6 +76,8 @@ function runAlertTask(task: ScheduledTask): void {
   if (apiKey) {
     env.GROK_API_KEY = apiKey;
   }
+  // Disable reasoning tool to avoid restricted endpoint errors in headless mode
+  env.H1DR4_DISABLE_REASONING = "1";
 
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);
