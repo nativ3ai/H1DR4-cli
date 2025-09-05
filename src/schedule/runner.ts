@@ -61,6 +61,13 @@ function runTask(task: ScheduledTask): void {
   }
 }
 
+function spawnAlertWindow(message: string): void {
+  const nodeCmd = `${process.execPath} -e "console.log(${JSON.stringify(
+    "ALERT 🚨 " + message,
+  )}); setInterval(()=>{}, 1e8)"`;
+  spawnInTerminal(nodeCmd);
+}
+
 function runAlertTask(task: ScheduledTask): void {
   const manager = getSettingsManager();
   const apiKey = manager.getApiKey();
@@ -91,13 +98,17 @@ function runAlertTask(task: ScheduledTask): void {
     }
 
     if (task.type === "alert-exact") {
-      if (output.toLowerCase().includes(criteria.toLowerCase())) {
+      let match = false;
+      try {
+        match = new RegExp(criteria, "i").test(output);
+      } catch {
+        match = output.toLowerCase().includes(criteria.toLowerCase());
+      }
+      if (match) {
         if (!isAlertLogged(task.id, output)) {
           logAlert(task.id, output);
           console.log(`ALERT 🚨 ${output}`);
-          const display = output.replace(/\s+/g, " ");
-          const sanitized = display.replace(/"/g, '\\"');
-          spawnInTerminal(`echo \"ALERT 🚨 ${sanitized}\"`);
+          spawnAlertWindow(output);
         }
       } else {
         const message = `NO MATCH: ${output}`;
@@ -121,7 +132,6 @@ function runAlertTask(task: ScheduledTask): void {
       const model = manager.getCurrentModel();
       const client = new H1dr4Client(apiKey, model, baseURL);
 
-      // Use a binary tool so Grok must respond with YES or NO
       const tool: H1dr4Tool = {
         type: "function",
         function: {
@@ -164,9 +174,7 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, output)) {
           logAlert(task.id, output);
           console.log(`ALERT 🚨 ${output}`);
-          const display = output.replace(/\s+/g, " ");
-          const sanitized = display.replace(/"/g, '\\"');
-          spawnInTerminal(`echo \"ALERT 🚨 ${sanitized}\"`);
+          spawnAlertWindow(output);
         }
       } else {
         const message = `NO MATCH: ${output}`;

@@ -76,8 +76,8 @@ export function useInputHandler({
       return true; // Handled
     }
 
-    // Toggle schedule list with Ctrl+Alt+S to avoid accidental activation
-    if (key.ctrl && key.alt && key.name === "s") {
+    // Toggle schedule list with Ctrl+Option+S to avoid accidental activation
+    if (key.ctrl && key.meta && key.name === "s") {
       setShowScheduleList((prev) => !prev);
       return true;
     }
