@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useInput } from "ink";
 import { H1dr4Agent, ChatEntry } from "../agent/h1dr4-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
@@ -53,6 +53,7 @@ export function useInputHandler({
     const sessionFlags = confirmationService.getSessionFlags();
     return sessionFlags.allOperations;
   });
+  const lastTabTimeRef = useRef(0);
 
   const handleSpecialKey = (key: Key): boolean => {
     // Don't handle input if confirmation dialog is active
@@ -76,10 +77,22 @@ export function useInputHandler({
       return true; // Handled
     }
 
-    // Toggle schedule list with Ctrl+Option+S to avoid accidental activation
-    if (key.ctrl && key.meta && key.name === "s") {
-      setShowScheduleList((prev) => !prev);
-      return true;
+    // Toggle schedule list by pressing Tab twice quickly
+    if (
+      key.tab &&
+      !key.shift &&
+      !key.ctrl &&
+      !key.meta &&
+      !showCommandSuggestions &&
+      !showModelSelection
+    ) {
+      const now = Date.now();
+      if (now - lastTabTimeRef.current < 500) {
+        setShowScheduleList((prev) => !prev);
+        lastTabTimeRef.current = 0;
+        return true;
+      }
+      lastTabTimeRef.current = now;
     }
 
     // Handle escape key for closing menus
