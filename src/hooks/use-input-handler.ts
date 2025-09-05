@@ -47,6 +47,7 @@ export function useInputHandler({
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [selectedModelIndex, setSelectedModelIndex] = useState(0);
+  const [showScheduleList, setShowScheduleList] = useState(false);
   const [autoEditEnabled, setAutoEditEnabled] = useState(() => {
     const confirmationService = ConfirmationService.getInstance();
     const sessionFlags = confirmationService.getSessionFlags();
@@ -75,6 +76,12 @@ export function useInputHandler({
       return true; // Handled
     }
 
+    // Toggle schedule list with Shift+S
+    if (key.shift && key.name === "s") {
+      setShowScheduleList((prev) => !prev);
+      return true;
+    }
+
     // Handle escape key for closing menus
     if (key.escape) {
       if (showCommandSuggestions) {
@@ -85,6 +92,10 @@ export function useInputHandler({
       if (showModelSelection) {
         setShowModelSelection(false);
         setSelectedModelIndex(0);
+        return true;
+      }
+      if (showScheduleList) {
+        setShowScheduleList(false);
         return true;
       }
       if (isProcessing || isStreaming) {
@@ -748,5 +759,6 @@ Respond with ONLY the commit message, no additional text.`;
     availableModels,
     agent,
     autoEditEnabled,
+    showScheduleList,
   };
 }
