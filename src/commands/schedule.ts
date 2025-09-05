@@ -135,9 +135,17 @@ function ensureDaemonRunning(): void {
     process.kill(pid, 0);
     return; // daemon already running
   } catch {}
-  const child = spawn(process.execPath, [DAEMON_PATH], {
-    detached: true,
-    stdio: "ignore",
-  });
-  child.unref();
+  const logDir = path.join(os.homedir(), ".h1dr4");
+  const logPath = path.join(logDir, "daemon.log");
+  try {
+    fs.mkdirSync(logDir, { recursive: true });
+    const out = fs.openSync(logPath, "a");
+    const child = spawn(process.execPath, [DAEMON_PATH], {
+      detached: true,
+      stdio: ["ignore", out, out],
+    });
+    child.unref();
+  } catch (err) {
+    console.error(`Failed to start daemon: ${err}`);
+  }
 }

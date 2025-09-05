@@ -68,6 +68,7 @@ function runAlertTask(task: ScheduledTask): void {
       if (!isAlertLogged(task.id, message)) {
         logAlert(task.id, message);
       }
+      console.error(message);
       return;
     }
 
@@ -78,6 +79,7 @@ function runAlertTask(task: ScheduledTask): void {
       if (!isAlertLogged(task.id, message)) {
         logAlert(task.id, message);
       }
+      console.error(message);
       return;
     }
 
@@ -92,6 +94,7 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, message)) {
           logAlert(task.id, message);
         }
+        console.log(message);
       }
       return;
     }
@@ -121,12 +124,14 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, message)) {
           logAlert(task.id, message);
         }
+        console.log(message);
       }
     } catch (err: any) {
       const message = `ERROR: ${err?.message || err}`;
       if (!isAlertLogged(task.id, message)) {
         logAlert(task.id, message);
       }
+      console.error(message);
     }
   });
 }
