@@ -182,6 +182,8 @@ function ensureDaemonRunning(): void {
     const child = spawn(process.execPath, [DAEMON_PATH], {
       detached: true,
       stdio: ["ignore", out, out],
+      cwd: path.join(__dirname, "..", ".."),
+      env: process.env,
     });
     child.unref();
   } catch (err) {
