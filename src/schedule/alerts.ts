@@ -3,7 +3,6 @@ import path from "path";
 import os from "os";
 
 const ALERTS_FILE = path.join(os.homedir(), ".h1dr4", "alerts.json");
-console.log(`Using alert log: ${ALERTS_FILE}`);
 
 interface AlertLog {
   [taskId: string]: string[];
@@ -12,7 +11,10 @@ interface AlertLog {
 function loadAlertLog(): AlertLog {
   try {
     return JSON.parse(fs.readFileSync(ALERTS_FILE, "utf8"));
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === "ENOENT") {
+      return {};
+    }
     console.error(`Failed to load alert log at ${ALERTS_FILE}: ${err}`);
     return {};
   }

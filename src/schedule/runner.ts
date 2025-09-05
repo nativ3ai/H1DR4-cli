@@ -88,6 +88,9 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, output)) {
           logAlert(task.id, output);
           console.log(`ALERT 🚨 ${output}`);
+          const display = output.replace(/\s+/g, " ");
+          const sanitized = display.replace(/"/g, '\\"');
+          spawnInTerminal(`echo \"ALERT 🚨 ${sanitized}\"`);
         }
       } else {
         const message = `NO MATCH: ${output}`;
@@ -156,6 +159,9 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, output)) {
           logAlert(task.id, output);
           console.log(`ALERT 🚨 ${output}`);
+          const display = output.replace(/\s+/g, " ");
+          const sanitized = display.replace(/"/g, '\\"');
+          spawnInTerminal(`echo \"ALERT 🚨 ${sanitized}\"`);
         }
       } else {
         const message = `NO MATCH: ${output}`;
