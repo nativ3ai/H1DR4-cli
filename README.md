@@ -452,8 +452,11 @@ h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
 # Schedule a natural-language query in headless mode
 h1dr4 schedule add "0 * * * *" "h1dr4 -p 'remind me to stretch'"
 
-# Schedule an alert that notifies when output matches criteria
-h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "DOWN"
+# Schedule an alert evaluated by Grok against natural-language criteria
+h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "service is down"
+
+# Schedule an alert that uses exact substring matching
+h1dr4 schedule alert-exact "*/5 * * * *" "curl -s https://example.com/status" --criteria "DOWN"
 
 # List scheduled tasks
 h1dr4 schedule list

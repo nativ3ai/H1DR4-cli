@@ -6,6 +6,8 @@ import os from "os";
 import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { isAlertLogged, logAlert } from "./alerts";
+import { getSettingsManager } from "../utils/settings-manager";
+import { H1dr4Client } from "../h1dr4/client";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -47,7 +49,7 @@ function spawnInTerminal(command: string): void {
 function runTask(task: ScheduledTask): void {
   const confirmationService = ConfirmationService.getInstance();
   confirmationService.setSessionFlag("allOperations", true);
-  if (task.type === "alert") {
+  if (task.type === "alert" || task.type === "alert-exact") {
     runAlertTask(task);
     return;
   }
@@ -60,14 +62,40 @@ function runTask(task: ScheduledTask): void {
 }
 
 function runAlertTask(task: ScheduledTask): void {
-  exec(task.command, (_error, stdout, stderr) => {
+  exec(task.command, async (_error, stdout, stderr) => {
     const output = (stdout + stderr).trim();
     const criteria = task.criteria || "";
-    if (criteria && output.toLowerCase().includes(criteria.toLowerCase())) {
-      if (!isAlertLogged(task.id, output)) {
+    if (!criteria) {
+      return;
+    }
+
+    if (task.type === "alert-exact") {
+      if (output.toLowerCase().includes(criteria.toLowerCase())) {
+        if (!isAlertLogged(task.id, output)) {
+          logAlert(task.id, output);
+          console.log(`ALERT 🚨 ${output}`);
+        }
+      }
+      return;
+    }
+
+    try {
+      const manager = getSettingsManager();
+      const apiKey = manager.getApiKey();
+      if (!apiKey) {
+        return;
+      }
+      const baseURL = manager.getBaseURL();
+      const model = manager.getCurrentModel();
+      const client = new H1dr4Client(apiKey, model, baseURL);
+      const prompt = `Command output:\n${output}\n\nCriteria:\n${criteria}\n\nDoes the output satisfy the criteria? Respond with YES or NO.`;
+      const response = await client.reason(prompt);
+      if (/^\s*yes\b/i.test(response) && !isAlertLogged(task.id, output)) {
         logAlert(task.id, output);
         console.log(`ALERT 🚨 ${output}`);
       }
+    } catch {
+      // swallow errors to avoid crashing the scheduler
     }
   });
 }

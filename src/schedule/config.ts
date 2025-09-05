@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-export type ScheduleType = "command" | "alert";
+export type ScheduleType = "command" | "alert" | "alert-exact";
 
 export interface ScheduledTask {
   id: string;

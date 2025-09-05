@@ -25,8 +25,10 @@ export function createScheduleCommand(): Command {
 
   scheduleCommand
     .command("alert <cron> <cmd...>")
-    .requiredOption("-c, --criteria <criteria>", "Criteria to match")
-    .description("Schedule a command that triggers alerts when output matches criteria")
+    .requiredOption("-c, --criteria <criteria>", "Natural-language criteria for Grok evaluation")
+    .description(
+      "Schedule a command that triggers alerts when Grok determines the output meets the criteria",
+    )
     .action((cron: string, cmd: string[], options: { criteria: string }) => {
       const command = cmd.join(" ");
       const task = {
@@ -42,6 +44,26 @@ export function createScheduleCommand(): Command {
     });
 
   scheduleCommand
+    .command("alert-exact <cron> <cmd...>")
+    .requiredOption("-c, --criteria <criteria>", "Substring to match (case-insensitive)")
+    .description(
+      "Schedule a command that triggers alerts only when output contains the exact criteria substring",
+    )
+    .action((cron: string, cmd: string[], options: { criteria: string }) => {
+      const command = cmd.join(" ");
+      const task = {
+        id: randomUUID(),
+        cron,
+        command,
+        type: "alert-exact" as const,
+        criteria: options.criteria,
+      };
+      addSchedule(task);
+      reloadSchedulers();
+      console.log(chalk.green(`✓ Scheduled exact-match alert ${task.id}`));
+    });
+
+  scheduleCommand
     .command("list")
     .description("List scheduled tasks")
     .action(() => {
@@ -52,8 +74,9 @@ export function createScheduleCommand(): Command {
       }
       console.log(chalk.bold("Scheduled tasks:"));
       tasks.forEach((t) => {
-        if (t.type === "alert") {
-          console.log(`${t.id}: ${t.cron} -> ${t.command} [alert: ${t.criteria}]`);
+        if (t.type === "alert" || t.type === "alert-exact") {
+          const mode = t.type === "alert-exact" ? "exact" : "grok";
+          console.log(`${t.id}: ${t.cron} -> ${t.command} [alert-${mode}: ${t.criteria}]`);
         } else {
           console.log(`${t.id}: ${t.cron} -> ${t.command}`);
         }
