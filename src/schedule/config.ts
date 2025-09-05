@@ -23,8 +23,15 @@ export function loadSchedules(): ScheduledTask[] {
 }
 
 export function saveSchedules(tasks: ScheduledTask[]): void {
-  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(tasks, null, 2));
+  try {
+    const dir = path.dirname(CONFIG_FILE);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(tasks, null, 2));
+  } catch (error: any) {
+    console.error(
+      `Failed to save schedules to ${CONFIG_FILE}: ${error?.message || error}`
+    );
+  }
 }
 
 export function addSchedule(task: ScheduledTask): void {

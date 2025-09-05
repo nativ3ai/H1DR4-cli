@@ -62,10 +62,22 @@ function runTask(task: ScheduledTask): void {
 }
 
 function runAlertTask(task: ScheduledTask): void {
-  exec(task.command, async (_error, stdout, stderr) => {
+  exec(task.command, async (error, stdout, stderr) => {
+    if (error) {
+      const message = `ERROR: ${error.message}`;
+      if (!isAlertLogged(task.id, message)) {
+        logAlert(task.id, message);
+      }
+      return;
+    }
+
     const output = (stdout + stderr).trim();
     const criteria = task.criteria || "";
     if (!criteria) {
+      const message = "ERROR: missing criteria";
+      if (!isAlertLogged(task.id, message)) {
+        logAlert(task.id, message);
+      }
       return;
     }
 
@@ -75,6 +87,11 @@ function runAlertTask(task: ScheduledTask): void {
           logAlert(task.id, output);
           console.log(`ALERT 🚨 ${output}`);
         }
+      } else {
+        const message = `NO MATCH: ${output}`;
+        if (!isAlertLogged(task.id, message)) {
+          logAlert(task.id, message);
+        }
       }
       return;
     }
@@ -83,6 +100,10 @@ function runAlertTask(task: ScheduledTask): void {
       const manager = getSettingsManager();
       const apiKey = manager.getApiKey();
       if (!apiKey) {
+        const message = "ERROR: missing API key";
+        if (!isAlertLogged(task.id, message)) {
+          logAlert(task.id, message);
+        }
         return;
       }
       const baseURL = manager.getBaseURL();
@@ -90,12 +111,22 @@ function runAlertTask(task: ScheduledTask): void {
       const client = new H1dr4Client(apiKey, model, baseURL);
       const prompt = `Command output:\n${output}\n\nCriteria:\n${criteria}\n\nDoes the output satisfy the criteria? Respond with YES or NO.`;
       const response = await client.reason(prompt);
-      if (/^\s*yes\b/i.test(response) && !isAlertLogged(task.id, output)) {
-        logAlert(task.id, output);
-        console.log(`ALERT 🚨 ${output}`);
+      if (/^\s*yes\b/i.test(response)) {
+        if (!isAlertLogged(task.id, output)) {
+          logAlert(task.id, output);
+          console.log(`ALERT 🚨 ${output}`);
+        }
+      } else {
+        const message = `NO MATCH: ${output}`;
+        if (!isAlertLogged(task.id, message)) {
+          logAlert(task.id, message);
+        }
       }
-    } catch {
-      // swallow errors to avoid crashing the scheduler
+    } catch (err: any) {
+      const message = `ERROR: ${err?.message || err}`;
+      if (!isAlertLogged(task.id, message)) {
+        logAlert(task.id, message);
+      }
     }
   });
 }

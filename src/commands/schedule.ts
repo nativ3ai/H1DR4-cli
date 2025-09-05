@@ -95,7 +95,13 @@ export function createScheduleCommand(): Command {
       }
       console.log(chalk.bold("Triggered alerts:"));
       for (const [, messages] of entries) {
-        messages.forEach((m) => console.log(`ALERT 🚨 ${m}`));
+        messages.forEach((m) => {
+          if (m.startsWith("ERROR:") || m.startsWith("NO MATCH:")) {
+            console.log(m);
+          } else {
+            console.log(`ALERT 🚨 ${m}`);
+          }
+        });
       }
     });
 
@@ -112,32 +118,18 @@ export function createScheduleCommand(): Command {
 }
 
 const PID_FILE = path.join(os.homedir(), ".h1dr4", "schedule.pid");
-const UI_PID_FILE = path.join(os.homedir(), ".h1dr4", "ui.pid");
 const DAEMON_PATH = path.join(__dirname, "../schedule/daemon.js");
 
 function reloadSchedulers(): void {
-  let notified = false;
-  try {
-    const uiPid = parseInt(fs.readFileSync(UI_PID_FILE, "utf8"), 10);
-    process.kill(uiPid, "SIGUSR1");
-    notified = true;
-  } catch {}
   try {
     const pid = parseInt(fs.readFileSync(PID_FILE, "utf8"), 10);
     process.kill(pid, "SIGUSR1");
-    notified = true;
-  } catch {}
-  if (!notified) {
+  } catch {
     ensureDaemonRunning();
   }
 }
 
 function ensureDaemonRunning(): void {
-  try {
-    const uiPid = parseInt(fs.readFileSync(UI_PID_FILE, "utf8"), 10);
-    process.kill(uiPid, 0);
-    return; // UI active, skip daemon
-  } catch {}
   try {
     const pid = parseInt(fs.readFileSync(PID_FILE, "utf8"), 10);
     process.kill(pid, 0);
