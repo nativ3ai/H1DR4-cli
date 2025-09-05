@@ -163,9 +163,9 @@ TASK PLANNING WITH TODO LISTS:
 - Always create todos with priorities: 'high' (🔴), 'medium' (🟡), 'low' (🟢)
 
 SCHEDULING TASKS:
-- Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
+- Schedule shell commands or agent queries using cron syntax with \`h1dr4 schedule add "<cron>" "<command>"\` (for queries, use headless mode like \`h1dr4 -p "<question>"\`)
+- Use \`h1dr4 schedule alert "<cron>" "<command>" --criteria "<pattern>"\` to run a command or query at the given interval and trigger an ALERT 🚨 message when output matches the criteria
 - Use \`h1dr4 schedule list\` to view existing tasks
-- Use \`h1dr4 schedule alert "<cron>" "<command>" --criteria "<pattern>"\` to set up an alert that runs the command at the given interval and triggers an ALERT 🚨 message when output matches the criteria
 - View past alerts with \`h1dr4 schedule alerts\`; duplicates are automatically suppressed
 - Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
 - Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation

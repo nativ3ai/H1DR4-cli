@@ -446,18 +446,27 @@ h1dr4 rss remove myfeed
 ### Scheduling Tasks
 
 ```bash
-# Schedule a command using cron syntax
+# Schedule a shell command using cron syntax
 h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
+
+# Schedule a natural-language query in headless mode
+h1dr4 schedule add "0 * * * *" "h1dr4 -p 'remind me to stretch'"
+
+# Schedule an alert that notifies when output matches criteria
+h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "DOWN"
 
 # List scheduled tasks
 h1dr4 schedule list
+
+# Show triggered alerts
+h1dr4 schedule alerts
 
 # Remove a task
 h1dr4 schedule remove TASK_ID
 ```
 
 Scheduled tasks run even if the CLI is closed. A background daemon watches
-`~/.h1dr4/schedules.json` and launches the command at the specified time. If the
+`~/.h1dr4/schedules.json` and launches the command or query at the specified time. If the
 chat interface is open, output is printed directly in the terminal. Otherwise,
 the daemon attempts to open a new terminal window to execute the command.
 
