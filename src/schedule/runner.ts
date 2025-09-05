@@ -98,12 +98,7 @@ function runAlertTask(task: ScheduledTask): void {
     }
 
     if (task.type === "alert-exact") {
-      let match = false;
-      try {
-        match = new RegExp(criteria, "i").test(output);
-      } catch {
-        match = output.toLowerCase().includes(criteria.toLowerCase());
-      }
+      const match = output.toLowerCase().includes(criteria.toLowerCase());
       if (match) {
         if (!isAlertLogged(task.id, output)) {
           logAlert(task.id, output);
