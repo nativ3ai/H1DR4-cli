@@ -96,10 +96,13 @@ export function createScheduleCommand(): Command {
       console.log(chalk.bold("Triggered alerts:"));
       for (const [, messages] of entries) {
         messages.forEach((m) => {
-          if (m.startsWith("ERROR:") || m.startsWith("NO MATCH:")) {
-            console.log(m);
+          if (m.startsWith("RUN:")) {
+            return; // skip run logs in summary view
+          }
+          if (m.startsWith("ALERT:")) {
+            console.log(`ALERT 🚨 ${m.slice(6).trim()}`);
           } else {
-            console.log(`ALERT 🚨 ${m}`);
+            console.log(m);
           }
         });
       }
@@ -120,10 +123,14 @@ export function createScheduleCommand(): Command {
       let previous = loadAlerts();
       const printMessages = (messages: string[]) => {
         messages.forEach((m) => {
-          if (m.startsWith("ERROR:") || m.startsWith("NO MATCH:")) {
+          if (m.startsWith("ALERT:")) {
+            console.log(`ALERT 🚨 ${m.slice(6).trim()}`);
+          } else if (m.startsWith("NO MATCH:") || m.startsWith("ERROR:")) {
             console.log(m);
+          } else if (m.startsWith("RUN:")) {
+            console.log(chalk.blue(m));
           } else {
-            console.log(`ALERT 🚨 ${m}`);
+            console.log(m);
           }
         });
       };

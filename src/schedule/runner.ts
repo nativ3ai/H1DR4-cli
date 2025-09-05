@@ -76,23 +76,22 @@ function runAlertTask(task: ScheduledTask): void {
     env.GROK_API_KEY = apiKey;
   }
 
+  // Log the command execution attempt for troubleshooting
+  logAlert(task.id, `RUN: ${task.command}`);
+
   exec(task.command, { env }, async (error, stdout, stderr) => {
+    const output = (stdout + stderr).trim();
     if (error) {
-      const message = `ERROR: ${error.message}`;
-      if (!isAlertLogged(task.id, message)) {
-        logAlert(task.id, message);
-      }
+      const message = `ERROR: ${error.message}${output ? `\n${output}` : ""}`;
+      logAlert(task.id, message);
       console.error(message);
       return;
     }
 
-    const output = (stdout + stderr).trim();
     const criteria = task.criteria || "";
     if (!criteria) {
       const message = "ERROR: missing criteria";
-      if (!isAlertLogged(task.id, message)) {
-        logAlert(task.id, message);
-      }
+      logAlert(task.id, message);
       console.error(message);
       return;
     }
@@ -100,16 +99,15 @@ function runAlertTask(task: ScheduledTask): void {
     if (task.type === "alert-exact") {
       const match = output.toLowerCase().includes(criteria.toLowerCase());
       if (match) {
-        if (!isAlertLogged(task.id, output)) {
-          logAlert(task.id, output);
+        const message = `ALERT: ${output}`;
+        if (!isAlertLogged(task.id, message)) {
+          logAlert(task.id, message);
           console.log(`ALERT 🚨 ${output}`);
           spawnAlertWindow(output);
         }
       } else {
         const message = `NO MATCH: ${output}`;
-        if (!isAlertLogged(task.id, message)) {
-          logAlert(task.id, message);
-        }
+        logAlert(task.id, message);
         console.log(message);
       }
       return;
@@ -118,9 +116,7 @@ function runAlertTask(task: ScheduledTask): void {
     try {
       if (!apiKey) {
         const message = "ERROR: missing API key";
-        if (!isAlertLogged(task.id, message)) {
-          logAlert(task.id, message);
-        }
+        logAlert(task.id, message);
         return;
       }
       const baseURL = manager.getBaseURL();
@@ -166,23 +162,20 @@ function runAlertTask(task: ScheduledTask): void {
       }
 
       if (match) {
-        if (!isAlertLogged(task.id, output)) {
-          logAlert(task.id, output);
+        const message = `ALERT: ${output}`;
+        if (!isAlertLogged(task.id, message)) {
+          logAlert(task.id, message);
           console.log(`ALERT 🚨 ${output}`);
           spawnAlertWindow(output);
         }
       } else {
         const message = `NO MATCH: ${output}`;
-        if (!isAlertLogged(task.id, message)) {
-          logAlert(task.id, message);
-        }
+        logAlert(task.id, message);
         console.log(message);
       }
     } catch (err: any) {
       const message = `ERROR: ${err?.message || err}`;
-      if (!isAlertLogged(task.id, message)) {
-        logAlert(task.id, message);
-      }
+      logAlert(task.id, message);
       console.error(message);
     }
   });
