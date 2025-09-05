@@ -10,6 +10,7 @@ import { ChatInput } from "./chat-input";
 import { MCPStatus } from "./mcp-status";
 import ConfirmationDialog from "./confirmation-dialog";
 import { ScheduleStatus } from "./schedule-status";
+import { AlertStatus } from "./alert-status";
 import { ScheduleList } from "./schedule-list";
 import {
   ConfirmationService,
@@ -243,6 +244,9 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
             <MCPStatus />
             <Box marginLeft={2}>
               <ScheduleStatus />
+            </Box>
+            <Box marginLeft={2}>
+              <AlertStatus />
             </Box>
           </Box>
 

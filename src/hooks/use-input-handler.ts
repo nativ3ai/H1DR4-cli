@@ -95,6 +95,12 @@ export function useInputHandler({
       lastTabTimeRef.current = now;
     }
 
+    // Fallback shortcut: Ctrl+Shift+S to toggle schedule list
+    if (key.ctrl && key.shift && key.name === "s") {
+      setShowScheduleList((prev) => !prev);
+      return true;
+    }
+
     // Handle escape key for closing menus
     if (key.escape) {
       if (showCommandSuggestions) {
