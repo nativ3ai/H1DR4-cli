@@ -7,7 +7,7 @@ import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { isAlertLogged, logAlert } from "./alerts";
 import { getSettingsManager } from "../utils/settings-manager";
-import { H1dr4Client, H1dr4Tool } from "../h1dr4/client";
+import { H1dr4Client } from "../h1dr4/client";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -123,25 +123,11 @@ function runAlertTask(task: ScheduledTask): void {
       const model = manager.getCurrentModel();
       const client = new H1dr4Client(apiKey, model, baseURL);
 
-      const tool: H1dr4Tool = {
-        type: "function",
-        function: {
-          name: "alert_match",
-          description: "Return YES if output satisfies the criteria, otherwise NO",
-          parameters: {
-            type: "object",
-            properties: {
-              result: { type: "string", enum: ["YES", "NO"] },
-            },
-            required: ["result"],
-          },
-        },
-      };
-
       const messages = [
         {
           role: "system" as const,
-          content: "Decide if the command output satisfies the criteria by calling the alert_match tool.",
+          content:
+            "Decide if the command output satisfies the criteria. Respond with YES or NO only.",
         },
         {
           role: "user" as const,
@@ -149,17 +135,9 @@ function runAlertTask(task: ScheduledTask): void {
         },
       ];
 
-      const resp = await client.chat(messages, [tool]);
-      const toolCall = resp.choices[0]?.message.tool_calls?.[0];
-      let match = false;
-      if (toolCall) {
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
-          match = args.result === "YES";
-        } catch {
-          match = false;
-        }
-      }
+      const resp = await client.chat(messages);
+      const reply = resp.choices[0]?.message.content?.trim().toLowerCase();
+      const match = reply === "yes";
 
       if (match) {
         const message = `ALERT: ${output}`;
