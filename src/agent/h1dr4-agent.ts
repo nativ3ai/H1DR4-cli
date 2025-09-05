@@ -163,10 +163,13 @@ TASK PLANNING WITH TODO LISTS:
 - Always create todos with priorities: 'high' (🔴), 'medium' (🟡), 'low' (🟢)
 
 SCHEDULING TASKS:
-- Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
+- Schedule shell commands or agent queries using cron syntax with \`h1dr4 schedule add "<cron>" "<command>"\` (for queries, use headless mode like \`h1dr4 -p "<question>"\`)
+- Use \`h1dr4 schedule alert "<cron>" "<command>" --criteria "<description>" [--popup long|short]\` to run a command or query at the given interval and trigger an ALERT 🚨 when Grok determines the output meets the natural-language criteria. \`--popup long\` keeps the alert window open; \`--popup short\` (default) closes it after ~30s. Grok must respond with **YES** or **NO**
+- For literal substring checks, use \`h1dr4 schedule alert-exact "<cron>" "<command>" --criteria "<text>" [--popup long|short]\`
 - Use \`h1dr4 schedule list\` to view existing tasks
+- View past alerts with \`h1dr4 schedule alerts\`; duplicates are automatically suppressed
 - Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
-- Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation
+- Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, bypass confirmation, and may use reasoning or other tools without additional prompts
 
 USER CONFIRMATION SYSTEM:
 File operations (create_file, str_replace_editor) and bash commands will automatically request user confirmation before execution. The confirmation system will show users the actual content or command before they decide. Users can choose to approve individual operations or approve all operations of that type for the session.

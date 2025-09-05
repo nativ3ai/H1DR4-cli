@@ -446,18 +446,38 @@ h1dr4 rss remove myfeed
 ### Scheduling Tasks
 
 ```bash
-# Schedule a command using cron syntax
+# Schedule a shell command using cron syntax
 h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
+
+# Schedule a natural-language query in headless mode
+h1dr4 schedule add "0 * * * *" "h1dr4 -p 'remind me to stretch'"
+
+# Schedule an alert evaluated by Grok against natural-language criteria
+h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "service is down"
+
+# Schedule an alert with a long-lived popup window
+h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "service is down" --popup long
+
+# Schedule an alert that uses exact substring matching
+h1dr4 schedule alert-exact "*/5 * * * *" "curl -s https://example.com/status" --criteria "DOWN"
 
 # List scheduled tasks
 h1dr4 schedule list
+
+# Show triggered alerts
+h1dr4 schedule alerts
 
 # Remove a task
 h1dr4 schedule remove TASK_ID
 ```
 
+When an alert's criteria is met, a separate terminal window opens and prints
+`ALERT 🚨` followed by the matching output so you can't miss it.
+
+In the interactive CLI, press **Tab** twice quickly or **Ctrl+Shift+S** to toggle a live list of scheduled tasks and alerts. The status bar shows the number of scheduled jobs (⏰) and triggered alerts (🚨).
+
 Scheduled tasks run even if the CLI is closed. A background daemon watches
-`~/.h1dr4/schedules.json` and launches the command at the specified time. If the
+`~/.h1dr4/schedules.json` and launches the command or query at the specified time. If the
 chat interface is open, output is printed directly in the terminal. Otherwise,
 the daemon attempts to open a new terminal window to execute the command.
 

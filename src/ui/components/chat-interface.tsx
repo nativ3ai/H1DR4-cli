@@ -9,6 +9,9 @@ import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { MCPStatus } from "./mcp-status";
 import ConfirmationDialog from "./confirmation-dialog";
+import { ScheduleStatus } from "./schedule-status";
+import { AlertStatus } from "./alert-status";
+import { ScheduleList } from "./schedule-list";
 import {
   ConfirmationService,
   ConfirmationOptions,
@@ -44,6 +47,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
     commandSuggestions,
     availableModels,
     autoEditEnabled,
+    showScheduleList,
   } = useInputHandler({
     agent,
     chatHistory,
@@ -238,6 +242,12 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
               <Text color="yellow">≋ {agent.getCurrentModel()}</Text>
             </Box>
             <MCPStatus />
+            <Box marginLeft={2}>
+              <ScheduleStatus />
+            </Box>
+            <Box marginLeft={2}>
+              <AlertStatus />
+            </Box>
           </Box>
 
           <CommandSuggestions
@@ -253,6 +263,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
             isVisible={showModelSelection}
             currentModel={agent.getCurrentModel()}
           />
+          <ScheduleList isVisible={showScheduleList} />
         </>
       )}
     </Box>

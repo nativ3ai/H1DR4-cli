@@ -341,13 +341,18 @@ const MORPH_EDIT_TOOL: H1dr4Tool = {
 
 // Function to build tools array conditionally
 function buildH1dr4Tools(): H1dr4Tool[] {
-  const tools = [...BASE_H1DR4_TOOLS];
-  
+  let tools = [...BASE_H1DR4_TOOLS];
+
+  // Optionally remove reasoning tool when disabled (e.g., for headless jobs)
+  if (process.env.H1DR4_DISABLE_REASONING === "1") {
+    tools = tools.filter((t) => t.function.name !== "reason");
+  }
+
   // Add Morph Fast Apply tool if API key is available
   if (process.env.MORPH_API_KEY) {
     tools.splice(3, 0, MORPH_EDIT_TOOL); // Insert after str_replace_editor
   }
-  
+
   return tools;
 }
 
