@@ -10,6 +10,7 @@ export interface ScheduledTask {
   command: string;
   type?: ScheduleType;
   criteria?: string;
+  alertDuration?: number;
 }
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");

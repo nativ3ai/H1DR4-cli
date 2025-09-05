@@ -455,6 +455,9 @@ h1dr4 schedule add "0 * * * *" "h1dr4 -p 'remind me to stretch'"
 # Schedule an alert evaluated by Grok against natural-language criteria
 h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "service is down"
 
+# Schedule an alert with a long-lived popup window
+h1dr4 schedule alert "*/5 * * * *" "curl -s https://example.com/status" --criteria "service is down" --popup long
+
 # Schedule an alert that uses exact substring matching
 h1dr4 schedule alert-exact "*/5 * * * *" "curl -s https://example.com/status" --criteria "DOWN"
 

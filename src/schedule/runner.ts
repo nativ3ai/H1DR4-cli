@@ -61,11 +61,19 @@ function runTask(task: ScheduledTask): void {
   }
 }
 
-function spawnAlertWindow(message: string): void {
-  const duration = process.env.H1DR4_ALERT_DURATION || "30000";
-  const nodeCmd = `${process.execPath} -e "console.log(${JSON.stringify(
-    "ALERT 🚨 " + message,
-  )}); setTimeout(()=>process.exit(0), ${duration})"`;
+function spawnAlertWindow(message: string, duration?: number): void {
+  const dur =
+    typeof duration === "number"
+      ? duration
+      : parseInt(process.env.H1DR4_ALERT_DURATION || "30000", 10);
+  const nodeCmd =
+    dur > 0
+      ? `${process.execPath} -e "console.log(${JSON.stringify(
+          "ALERT 🚨 " + message,
+        )}); setTimeout(()=>process.exit(0), ${dur})"`
+      : `${process.execPath} -e "console.log(${JSON.stringify(
+          "ALERT 🚨 " + message,
+        )}); setInterval(()=>{}, 1e8)"`;
   spawnInTerminal(nodeCmd);
 }
 
@@ -76,8 +84,6 @@ function runAlertTask(task: ScheduledTask): void {
   if (apiKey) {
     env.GROK_API_KEY = apiKey;
   }
-  // Disable reasoning tool to avoid restricted endpoint errors in headless mode
-  env.H1DR4_DISABLE_REASONING = "1";
 
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);
@@ -106,7 +112,7 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, message)) {
           logAlert(task.id, message);
           console.log(`ALERT 🚨 ${output}`);
-          spawnAlertWindow(output);
+          spawnAlertWindow(output, task.alertDuration);
         }
       } else {
         const message = `NO MATCH: ${output}`;
@@ -147,7 +153,7 @@ function runAlertTask(task: ScheduledTask): void {
         if (!isAlertLogged(task.id, message)) {
           logAlert(task.id, message);
           console.log(`ALERT 🚨 ${output}`);
-          spawnAlertWindow(output);
+          spawnAlertWindow(output, task.alertDuration);
         }
       } else {
         const message = `NO MATCH: ${output}`;

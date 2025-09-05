@@ -26,17 +26,20 @@ export function createScheduleCommand(): Command {
   scheduleCommand
     .command("alert <cron> <cmd...>")
     .requiredOption("-c, --criteria <criteria>", "Natural-language criteria for Grok evaluation")
+    .option("--popup <mode>", "Alert window: short (30s) or long", "short")
     .description(
       "Schedule a command that triggers alerts when Grok determines the output meets the criteria",
     )
-    .action((cron: string, cmd: string[], options: { criteria: string }) => {
+    .action((cron: string, cmd: string[], options: { criteria: string; popup: string }) => {
       const command = cmd.join(" ");
+      const alertDuration = options.popup === "long" ? 0 : 30000;
       const task = {
         id: randomUUID(),
         cron,
         command,
         type: "alert" as const,
         criteria: options.criteria,
+        alertDuration,
       };
       addSchedule(task);
       reloadSchedulers();
@@ -46,17 +49,20 @@ export function createScheduleCommand(): Command {
   scheduleCommand
     .command("alert-exact <cron> <cmd...>")
     .requiredOption("-c, --criteria <criteria>", "Substring to match (case-insensitive)")
+    .option("--popup <mode>", "Alert window: short (30s) or long", "short")
     .description(
       "Schedule a command that triggers alerts only when output contains the exact criteria substring",
     )
-    .action((cron: string, cmd: string[], options: { criteria: string }) => {
+    .action((cron: string, cmd: string[], options: { criteria: string; popup: string }) => {
       const command = cmd.join(" ");
+      const alertDuration = options.popup === "long" ? 0 : 30000;
       const task = {
         id: randomUUID(),
         cron,
         command,
         type: "alert-exact" as const,
         criteria: options.criteria,
+        alertDuration,
       };
       addSchedule(task);
       reloadSchedulers();
@@ -76,7 +82,10 @@ export function createScheduleCommand(): Command {
       tasks.forEach((t) => {
         if (t.type === "alert" || t.type === "alert-exact") {
           const mode = t.type === "alert-exact" ? "exact" : "grok";
-          console.log(`${t.id}: ${t.cron} -> ${t.command} [alert-${mode}: ${t.criteria}]`);
+          const popup = t.alertDuration === 0 ? "long" : "short";
+          console.log(
+            `${t.id}: ${t.cron} -> ${t.command} [alert-${mode}: ${t.criteria}; popup: ${popup}]`,
+          );
         } else {
           console.log(`${t.id}: ${t.cron} -> ${t.command}`);
         }
