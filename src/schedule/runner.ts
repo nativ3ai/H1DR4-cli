@@ -7,7 +7,7 @@ import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { isAlertLogged, logAlert } from "./alerts";
 import { getSettingsManager } from "../utils/settings-manager";
-import { H1dr4Client } from "../h1dr4/client";
+import { H1dr4Client, H1dr4Tool } from "../h1dr4/client";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -112,9 +112,47 @@ function runAlertTask(task: ScheduledTask): void {
       const baseURL = manager.getBaseURL();
       const model = manager.getCurrentModel();
       const client = new H1dr4Client(apiKey, model, baseURL);
-      const prompt = `Command output:\n${output}\n\nCriteria:\n${criteria}\n\nDoes the output satisfy the criteria? Respond with YES or NO.`;
-      const response = await client.reason(prompt);
-      if (/^\s*yes\b/i.test(response)) {
+
+      // Use a binary tool so Grok must respond with YES or NO
+      const tool: H1dr4Tool = {
+        type: "function",
+        function: {
+          name: "alert_match",
+          description: "Return YES if output satisfies the criteria, otherwise NO",
+          parameters: {
+            type: "object",
+            properties: {
+              result: { type: "string", enum: ["YES", "NO"] },
+            },
+            required: ["result"],
+          },
+        },
+      };
+
+      const messages = [
+        {
+          role: "system" as const,
+          content: "Decide if the command output satisfies the criteria by calling the alert_match tool.",
+        },
+        {
+          role: "user" as const,
+          content: `Command output:\n${output}\n\nCriteria:\n${criteria}`,
+        },
+      ];
+
+      const resp = await client.chat(messages, [tool]);
+      const toolCall = resp.choices[0]?.message.tool_calls?.[0];
+      let match = false;
+      if (toolCall) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          match = args.result === "YES";
+        } catch {
+          match = false;
+        }
+      }
+
+      if (match) {
         if (!isAlertLogged(task.id, output)) {
           logAlert(task.id, output);
           console.log(`ALERT 🚨 ${output}`);
