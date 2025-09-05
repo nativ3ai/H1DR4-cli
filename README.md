@@ -471,6 +471,9 @@ h1dr4 schedule alerts
 h1dr4 schedule remove TASK_ID
 ```
 
+When an alert's criteria is met, a separate terminal window opens and prints
+`ALERT 🚨` followed by the matching output so you can't miss it.
+
 In the interactive CLI, press **Tab** twice quickly or **Ctrl+Shift+S** to toggle a live list of scheduled tasks and alerts. The status bar shows the number of scheduled jobs (⏰) and triggered alerts (🚨).
 
 Scheduled tasks run even if the CLI is closed. A background daemon watches
