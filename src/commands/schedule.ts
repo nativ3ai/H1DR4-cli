@@ -106,6 +106,45 @@ export function createScheduleCommand(): Command {
     });
 
   scheduleCommand
+    .command("watch")
+    .description("Watch alert log for new entries in real time")
+    .action(() => {
+      const logPath = path.join(os.homedir(), ".h1dr4", "alerts.json");
+      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      if (!fs.existsSync(logPath)) {
+        fs.writeFileSync(logPath, "{}", "utf8");
+      }
+
+      console.log(chalk.dim(`Watching ${logPath} (press Ctrl+C to exit)`));
+
+      let previous = loadAlerts();
+      const printMessages = (messages: string[]) => {
+        messages.forEach((m) => {
+          if (m.startsWith("ERROR:") || m.startsWith("NO MATCH:")) {
+            console.log(m);
+          } else {
+            console.log(`ALERT 🚨 ${m}`);
+          }
+        });
+      };
+
+      // Print existing alerts once at startup
+      Object.values(previous).forEach(printMessages);
+
+      fs.watchFile(logPath, { interval: 500 }, () => {
+        const current = loadAlerts();
+        for (const [id, msgs] of Object.entries(current)) {
+          const prev = previous[id] || [];
+          const newMsgs = msgs.slice(prev.length);
+          if (newMsgs.length > 0) {
+            printMessages(newMsgs);
+          }
+        }
+        previous = current;
+      });
+    });
+
+  scheduleCommand
     .command("remove <id>")
     .description("Remove a scheduled task")
     .action((id: string) => {

@@ -62,7 +62,14 @@ function runTask(task: ScheduledTask): void {
 }
 
 function runAlertTask(task: ScheduledTask): void {
-  exec(task.command, async (error, stdout, stderr) => {
+  const manager = getSettingsManager();
+  const apiKey = manager.getApiKey();
+  const env = { ...process.env } as NodeJS.ProcessEnv;
+  if (apiKey) {
+    env.GROK_API_KEY = apiKey;
+  }
+
+  exec(task.command, { env }, async (error, stdout, stderr) => {
     if (error) {
       const message = `ERROR: ${error.message}`;
       if (!isAlertLogged(task.id, message)) {
@@ -103,8 +110,6 @@ function runAlertTask(task: ScheduledTask): void {
     }
 
     try {
-      const manager = getSettingsManager();
-      const apiKey = manager.getApiKey();
       if (!apiKey) {
         const message = "ERROR: missing API key";
         if (!isAlertLogged(task.id, message)) {
