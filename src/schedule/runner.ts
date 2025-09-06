@@ -1,5 +1,5 @@
 import schedule from "node-schedule";
-import { spawn, exec } from "child_process";
+import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -76,10 +76,10 @@ function spawnAlertWindow(message: string, duration?: number): void {
       : parseInt(process.env.H1DR4_ALERT_DURATION || "30000", 10);
   const nodeCmd =
     dur > 0
-      ? `${process.execPath} -e "console.log(${JSON.stringify(
+      ? `${process.execPath} -e "process.stdout.write('\\x07'); console.log(${JSON.stringify(
           "ALERT 🚨 " + message,
         )}); setTimeout(()=>process.exit(0), ${dur})"`
-      : `${process.execPath} -e "console.log(${JSON.stringify(
+      : `${process.execPath} -e "process.stdout.write('\\x07'); console.log(${JSON.stringify(
           "ALERT 🚨 " + message,
         )}); setInterval(()=>{}, 1e8)"`;
   spawnInTerminal(nodeCmd);
@@ -96,10 +96,30 @@ function runAlertTask(task: ScheduledTask): void {
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);
 
-  exec(task.command, { env }, async (error, stdout, stderr) => {
-    const output = (stdout + stderr).trim();
-    if (error) {
-      const message = `ERROR: ${error.message}${output ? `\n${output}` : ""}`;
+  const child = spawn(task.command, { env, shell: true });
+  let output = "";
+
+  child.stdout.on("data", (data) => {
+    output += data.toString();
+    if (process.stdout.isTTY) {
+      process.stdout.write(data);
+    }
+  });
+
+  child.stderr.on("data", (data) => {
+    output += data.toString();
+    if (process.stderr.isTTY) {
+      process.stderr.write(data);
+    }
+  });
+
+  child.on("close", async (code) => {
+    output = output.trim();
+
+    if (code !== 0) {
+      const message = `ERROR: command exited with code ${code}${
+        output ? `\n${output}` : ""
+      }`;
       logAlert(task.id, message);
       console.error(message);
       return;
@@ -154,7 +174,6 @@ function runAlertTask(task: ScheduledTask): void {
 
       const resp = await client.chat(messages);
       const reply = resp.choices[0]?.message.content?.trim().toLowerCase();
-      // Be tolerant of minor variations like "yes." or "yes, it does"
       const match = reply ? /^yes\b/.test(reply) : false;
 
       if (match) {
@@ -172,8 +191,7 @@ function runAlertTask(task: ScheduledTask): void {
     } catch (err: any) {
       let errorMessage = err?.message || String(err);
       if (/access to endpoint denied/i.test(errorMessage)) {
-        // Provide a clearer hint when the API key lacks required permissions
-        errorMessage += 
+        errorMessage +=
           " (check that your API key has access to the reasoning endpoint)";
       }
       const message = `ERROR: ${errorMessage}`;
