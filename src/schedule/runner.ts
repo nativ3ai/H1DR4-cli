@@ -41,8 +41,16 @@ function spawnInTerminal(command: string): void {
     const osa = `tell application \"Terminal\" to do script \"${command.replace(/"/g, '\\"')}\"`;
     spawn("osascript", ["-e", osa], { detached: true });
   } else {
+    // Use bash -lc to ensure the command is parsed consistently and shell features
+    // like quoting and environment expansion work as expected. Without this some
+    // terminals treat the entire command as a single argument which prevents
+    // alerts from opening a new window.
     const term = process.env.TERM_PROGRAM || "x-terminal-emulator";
-    spawn(term, ["-e", command], { detached: true });
+    const child = spawn(term, ["-e", "bash", "-lc", command], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
   }
 }
 
@@ -146,7 +154,8 @@ function runAlertTask(task: ScheduledTask): void {
 
       const resp = await client.chat(messages);
       const reply = resp.choices[0]?.message.content?.trim().toLowerCase();
-      const match = reply === "yes";
+      // Be tolerant of minor variations like "yes." or "yes, it does"
+      const match = reply ? /^yes\b/.test(reply) : false;
 
       if (match) {
         const message = `ALERT: ${output}`;
@@ -161,7 +170,13 @@ function runAlertTask(task: ScheduledTask): void {
         console.log(message);
       }
     } catch (err: any) {
-      const message = `ERROR: ${err?.message || err}`;
+      let errorMessage = err?.message || String(err);
+      if (/access to endpoint denied/i.test(errorMessage)) {
+        // Provide a clearer hint when the API key lacks required permissions
+        errorMessage += 
+          " (check that your API key has access to the reasoning endpoint)";
+      }
+      const message = `ERROR: ${errorMessage}`;
       logAlert(task.id, message);
       console.error(message);
     }
