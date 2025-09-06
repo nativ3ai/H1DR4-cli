@@ -27,10 +27,10 @@ export interface ProjectSettings {
  */
 const DEFAULT_USER_SETTINGS: Partial<UserSettings> = {
   baseURL: "https://api.x.ai/v1",
-  defaultModel: "grok-4-latest",
+  defaultModel: "grok-3-latest",
   models: [
+    "grok-3-latest",
     "grok-4-latest",
-    "grok-3-latest", 
     "grok-3-fast",
     "grok-3-mini-fast"
   ]
@@ -40,7 +40,7 @@ const DEFAULT_USER_SETTINGS: Partial<UserSettings> = {
  * Default values for project settings
  */
 const DEFAULT_PROJECT_SETTINGS: Partial<ProjectSettings> = {
-  model: "grok-4-latest"
+  model: "grok-3-latest"
 };
 
 /**
@@ -238,7 +238,7 @@ export class SettingsManager {
       return userDefaultModel;
     }
     
-    return DEFAULT_PROJECT_SETTINGS.model || 'grok-4-latest';
+    return DEFAULT_PROJECT_SETTINGS.model || 'grok-3-latest';
   }
   
   /**

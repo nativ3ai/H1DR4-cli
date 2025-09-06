@@ -90,6 +90,9 @@ function runAlertTask(task: ScheduledTask): void {
   if (apiKey) {
     env.GROK_API_KEY = apiKey;
   }
+  if (!env.H1DR4_MODEL) {
+    env.H1DR4_MODEL = "grok-3-latest";
+  }
 
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);

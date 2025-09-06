@@ -68,7 +68,7 @@ export class H1dr4Agent extends EventEmitter {
     super();
     const manager = getSettingsManager();
     const savedModel = manager.getCurrentModel();
-    const modelToUse = model || savedModel || "grok-4-latest";
+    const modelToUse = model || savedModel || "grok-3-latest";
     this.maxToolRounds = maxToolRounds || 400;
     this.h1dr4Client = new H1dr4Client(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
