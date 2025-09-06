@@ -73,15 +73,14 @@ function spawnAlertWindow(message: string, duration?: number): void {
     typeof duration === "number"
       ? duration
       : parseInt(process.env.H1DR4_ALERT_DURATION || "30000", 10);
-  const nodeCmd =
-    dur > 0
-      ? `${process.execPath} -e "process.stdout.write('\\x07'); console.log(${JSON.stringify(
-          "ALERT 🚨 " + message,
-        )}); setTimeout(()=>process.exit(0), ${dur})"`
-      : `${process.execPath} -e "process.stdout.write('\\x07'); console.log(${JSON.stringify(
-          "ALERT 🚨 " + message,
-        )}); setInterval(()=>{}, 1e8)"`;
-  spawnInTerminal(nodeCmd);
+  const sleepSeconds = dur > 0 ? Math.ceil(dur / 1000) : 0;
+  // Escape characters that would break the shell command.
+  const escaped = message.replace(/(["'\\])/g, "\\$1");
+  const alertCmd =
+    sleepSeconds > 0
+      ? `printf '\\a'; echo "ALERT 🚨 ${escaped}"; sleep ${sleepSeconds}`
+      : `printf '\\a'; echo "ALERT 🚨 ${escaped}"; sleep 100000000`; // keep window open
+  spawnInTerminal(alertCmd);
 }
 
 function runAlertTask(task: ScheduledTask): void {
@@ -155,8 +154,8 @@ function runAlertTask(task: ScheduledTask): void {
     // For fuzzy criteria, delegate evaluation to a background h1dr4 CLI query.
     // We ask the model if the command output meets the criteria, expecting a YES/NO reply.
     const evalPrompt =
-      `Does the following content satisfy the criteria "${criteria}"? ` +
-      `Respond with YES or NO only.\n\nCONTENT:\n${output}`;
+      `Does the following content contain "${criteria}"? ` +
+      `Reply with YES or NO only.\n\nCONTENT:\n${output}`;
     // Run the criteria check through a login shell as well so the `h1dr4`
     // binary is resolved using the user's environment. We quote the prompt via
     // JSON.stringify to preserve newlines and other characters.
@@ -182,7 +181,7 @@ function runAlertTask(task: ScheduledTask): void {
         return;
       }
 
-      const match = /^yes\b/.test(reply);
+      const match = reply.includes("yes");
       if (match) {
         const message = `Your scheduled job id ${task.id} passed the criteria -> ${output}`;
         if (!isAlertLogged(task.id, message)) {
