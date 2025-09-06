@@ -20,7 +20,8 @@ const EVENTS_FILE = path.join(os.homedir(), ".h1dr4", "alert-events.json");
 
 export function loadAlerts(): AlertTask[] {
   try {
-    return JSON.parse(fs.readFileSync(ALERTS_FILE, "utf8"));
+    const data = JSON.parse(fs.readFileSync(ALERTS_FILE, "utf8"));
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
@@ -44,7 +45,8 @@ export function removeAlert(id: string): void {
 
 export function loadAlertEvents(): AlertEvent[] {
   try {
-    return JSON.parse(fs.readFileSync(EVENTS_FILE, "utf8"));
+    const data = JSON.parse(fs.readFileSync(EVENTS_FILE, "utf8"));
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
