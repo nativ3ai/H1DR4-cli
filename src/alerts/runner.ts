@@ -10,6 +10,7 @@ import { ConfirmationService } from "../utils/confirmation-service";
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "alerts.json");
 let watcher: fs.FSWatcher | null = null;
 let jobs: Record<string, any> = {};
+const activeNotifications = new Set<string>();
 
 export function startAllAlerts(): void {
   const alerts = loadAlerts();
@@ -32,10 +33,14 @@ export function startAllAlerts(): void {
 }
 
 function runAlert(alert: AlertTask): void {
-  exec(alert.command, { encoding: "utf8" }, (error, stdout, stderr) => {
+  exec(alert.command, { encoding: "utf8" }, (_error, stdout, stderr) => {
     const output = `${stdout}${stderr}`;
     if (output.includes(alert.criteria)) {
-      addAlertEvent({ id: alert.id, timestamp: new Date().toISOString(), output });
+      addAlertEvent({
+        id: alert.id,
+        timestamp: new Date().toISOString(),
+        output,
+      });
       notify(alert, output);
     }
   });
@@ -44,24 +49,33 @@ function runAlert(alert: AlertTask): void {
 function spawnInTerminal(message: string): void {
   const platform = process.platform;
   if (platform === "win32") {
-    exec(`start cmd /k "echo ${message}"`);
+    exec(`start cmd /k "echo ${message} && pause"`);
   } else if (platform === "darwin") {
-    const osa = `tell application \"Terminal\" to do script \"echo ${message.replace(/"/g, '\\"')}\"`;
-    exec(`osascript -e "${osa}"`);
+    const escaped = message.replace(/(["\\])/g, "\\$1");
+    const osa = `tell application "Terminal" to do script "echo ${escaped}; read"`;
+    exec(`osascript -e '${osa}'`);
   } else {
     const term = process.env.TERM_PROGRAM || "x-terminal-emulator";
-    exec(`${term} -e 'echo ${message}; read'`);
+    const escaped = message.replace(/'/g, "'\\''");
+    exec(`${term} -e 'echo ${escaped}; read'`);
   }
 }
 
 function notify(alert: AlertTask, output: string): void {
+  if (activeNotifications.has(alert.id)) {
+    return;
+  }
+  activeNotifications.add(alert.id);
+
   const confirmationService = ConfirmationService.getInstance();
   confirmationService.setSessionFlag("allOperations", true);
   const message = `ALERT ${alert.id} triggered (criteria: ${alert.criteria})`;
+  const fullMessage = `${message}\n${output}`;
+
+  spawnInTerminal(fullMessage);
   if (process.stdout.isTTY) {
-    console.log(chalk.red(`\n${message}\n`));
-    console.log(output);
-  } else {
-    spawnInTerminal(message);
+    console.log(chalk.red(`\n${fullMessage}\n`));
   }
+
+  setTimeout(() => activeNotifications.delete(alert.id), 1000);
 }

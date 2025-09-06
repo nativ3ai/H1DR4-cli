@@ -481,7 +481,8 @@ h1dr4 alert history
 ```
 
 Alerts are stored in `~/.h1dr4/alerts.json` and continue running in the
-background similar to scheduled tasks.
+background similar to scheduled tasks. When a match occurs, a new terminal
+window displays the alert details so you don't miss the event.
 
 ### Managing MCP Servers
 

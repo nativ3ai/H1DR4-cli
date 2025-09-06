@@ -22,9 +22,24 @@ import os from "os";
 // Load environment variables
 dotenv.config();
 startAllTasks();
-startAllAlerts();
 process.on("SIGUSR1", startAllTasks);
-process.on("SIGUSR2", startAllAlerts);
+
+const ALERT_PID_FILE = path.join(os.homedir(), ".h1dr4", "alerts.pid");
+
+function alertDaemonRunning(): boolean {
+  try {
+    const pid = parseInt(fs.readFileSync(ALERT_PID_FILE, "utf8"), 10);
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (!alertDaemonRunning()) {
+  startAllAlerts();
+  process.on("SIGUSR2", startAllAlerts);
+}
 
 const UI_PID_FILE = path.join(os.homedir(), ".h1dr4", "ui.pid");
 
