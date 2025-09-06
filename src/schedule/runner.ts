@@ -95,7 +95,10 @@ function runAlertTask(task: ScheduledTask): void {
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);
 
-  const child = spawn(task.command, { env, shell: true });
+  // Execute the alert command inside a login shell so it behaves the same way
+  // as commands launched via `schedule add`. This ensures user profiles and
+  // PATH lookups are applied even when the daemon runs in the background.
+  const child = spawn("bash", ["-lc", task.command], { env });
   let output = "";
 
   child.stdout.on("data", (data) => {
@@ -154,7 +157,11 @@ function runAlertTask(task: ScheduledTask): void {
     const evalPrompt =
       `Does the following content satisfy the criteria "${criteria}"? ` +
       `Respond with YES or NO only.\n\nCONTENT:\n${output}`;
-    const evalChild = spawn("h1dr4", ["-p", evalPrompt], { env });
+    // Run the criteria check through a login shell as well so the `h1dr4`
+    // binary is resolved using the user's environment. We quote the prompt via
+    // JSON.stringify to preserve newlines and other characters.
+    const evalCmd = `h1dr4 -p ${JSON.stringify(evalPrompt)}`;
+    const evalChild = spawn("bash", ["-lc", evalCmd], { env });
 
     let evalOutput = "";
     evalChild.stdout.on("data", (data) => {
@@ -166,10 +173,10 @@ function runAlertTask(task: ScheduledTask): void {
 
     evalChild.on("close", (evalCode) => {
       const reply = evalOutput.trim().toLowerCase();
-      if (evalCode !== 0) {
-        const message = `ERROR: criteria evaluation failed with code ${evalCode}${
-          reply ? `\n${reply}` : ""
-        }`;
+      if (evalCode !== 0 || /error:/i.test(reply)) {
+        const message = `ERROR: criteria evaluation failed${
+          evalCode !== 0 ? ` with code ${evalCode}` : ""
+        }${reply ? `\n${reply}` : ""}`;
         logAlert(task.id, message);
         console.error(message);
         return;
