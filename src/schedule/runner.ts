@@ -36,21 +36,38 @@ function spawnInTerminal(command: string): void {
   const platform = process.platform;
   if (platform === "win32") {
     spawn("cmd", ["/c", "start", "cmd", "/k", command], { detached: true });
-  } else if (platform === "darwin") {
+    return;
+  }
+
+  if (platform === "darwin") {
     const osa = `tell application \"Terminal\" to do script \"${command.replace(/"/g, '\\"')}\"`;
     spawn("osascript", ["-e", osa], { detached: true });
-  } else {
-    // Use bash -lc to ensure the command is parsed consistently and shell features
-    // like quoting and environment expansion work as expected. Without this some
-    // terminals treat the entire command as a single argument which prevents
-    // alerts from opening a new window.
-    const term = process.env.TERM_PROGRAM || "x-terminal-emulator";
+    return;
+  }
+
+  // Linux/Unix: attempt common terminals, falling back if spawning fails.
+  const terminals = [
+    process.env.TERM_PROGRAM,
+    "x-terminal-emulator",
+    "gnome-terminal",
+    "xterm",
+  ].filter(Boolean) as string[];
+
+  const trySpawn = (idx: number): void => {
+    const term = terminals[idx];
+    if (!term) {
+      console.error("Failed to spawn terminal for alert window");
+      return;
+    }
     const child = spawn(term, ["-e", "bash", "-lc", command], {
       detached: true,
       stdio: "ignore",
     });
+    child.on("error", () => trySpawn(idx + 1));
     child.unref();
-  }
+  };
+
+  trySpawn(0);
 }
 
 function runTask(task: ScheduledTask): void {
@@ -74,13 +91,21 @@ function spawnAlertWindow(message: string, duration?: number): void {
       ? duration
       : parseInt(process.env.H1DR4_ALERT_DURATION || "30000", 10);
   const sleepSeconds = dur > 0 ? Math.ceil(dur / 1000) : 0;
-  // Escape characters that would break the shell command.
-  const escaped = message.replace(/(["'\\])/g, "\\$1");
-  const alertCmd =
-    sleepSeconds > 0
-      ? `printf '\\a'; echo "ALERT 🚨 ${escaped}"; sleep ${sleepSeconds}`
-      : `printf '\\a'; echo "ALERT 🚨 ${escaped}"; sleep 100000000`; // keep window open
-  spawnInTerminal(alertCmd);
+
+  const scriptPath = path.join(
+    os.tmpdir(),
+    `h1dr4-alert-${Date.now()}-${Math.random().toString(16).slice(2)}.sh`
+  );
+  const script = [
+    "#!/usr/bin/env bash",
+    "printf '\\a'",
+    `echo ${JSON.stringify(`ALERT 🚨 ${message}`)}`,
+    `sleep ${sleepSeconds || 100000000}`,
+  ].join("\n");
+  fs.writeFileSync(scriptPath, script, { mode: 0o700 });
+  spawnInTerminal(`bash ${scriptPath}`);
+  // Clean up after a short delay; terminal holds a copy after spawn
+  setTimeout(() => fs.unlink(scriptPath, () => {}), 60_000);
 }
 
 function runAlertTask(task: ScheduledTask): void {
@@ -90,9 +115,7 @@ function runAlertTask(task: ScheduledTask): void {
   if (apiKey) {
     env.GROK_API_KEY = apiKey;
   }
-  if (!env.H1DR4_MODEL) {
-    env.H1DR4_MODEL = "grok-3-latest";
-  }
+  env.H1DR4_MODEL = env.H1DR4_MODEL || "grok-3-latest";
 
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);
@@ -115,6 +138,12 @@ function runAlertTask(task: ScheduledTask): void {
     if (process.stderr.isTTY) {
       process.stderr.write(data);
     }
+  });
+
+  child.on("error", (err) => {
+    const message = `ERROR: failed to run command - ${err.message}`;
+    logAlert(task.id, message);
+    console.error(message);
   });
 
   child.on("close", async (code) => {
@@ -162,7 +191,7 @@ function runAlertTask(task: ScheduledTask): void {
     // Run the criteria check through a login shell as well so the `h1dr4`
     // binary is resolved using the user's environment. We quote the prompt via
     // JSON.stringify to preserve newlines and other characters.
-    const evalCmd = `h1dr4 -p ${JSON.stringify(evalPrompt)}`;
+    const evalCmd = `h1dr4 -p ${JSON.stringify(evalPrompt)} -m ${env.H1DR4_MODEL}`;
     const evalChild = spawn("bash", ["-lc", evalCmd], { env });
 
     let evalOutput = "";
@@ -173,18 +202,28 @@ function runAlertTask(task: ScheduledTask): void {
       evalOutput += data.toString();
     });
 
+    evalChild.on("error", (err) => {
+      const message = `ERROR: criteria process failed to start - ${err.message}`;
+      logAlert(task.id, message);
+      console.error(message);
+    });
+
     evalChild.on("close", (evalCode) => {
       const reply = evalOutput.trim().toLowerCase();
-      if (evalCode !== 0 || /error:/i.test(reply)) {
-        const message = `ERROR: criteria evaluation failed${
-          evalCode !== 0 ? ` with code ${evalCode}` : ""
-        }${reply ? `\n${reply}` : ""}`;
+      if (evalCode !== 0 || /403/.test(reply) || /error:/i.test(reply)) {
+        const msg =
+          /403/.test(reply)
+            ? "API key lacks permission for criteria evaluation"
+            : `criteria evaluation failed${
+                evalCode !== 0 ? ` with code ${evalCode}` : ""
+              }`;
+        const message = `ERROR: ${msg}${reply ? `\n${reply}` : ""}`;
         logAlert(task.id, message);
         console.error(message);
         return;
       }
 
-      const match = reply.includes("yes");
+      const match = /\byes\b/.test(reply);
       if (match) {
         const message = `Your scheduled job id ${task.id} passed the criteria -> ${output}`;
         if (!isAlertLogged(task.id, message)) {
