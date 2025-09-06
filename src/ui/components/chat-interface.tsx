@@ -8,6 +8,7 @@ import { ModelSelection } from "./model-selection";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { MCPStatus } from "./mcp-status";
+import { AlertStatus } from "./alert-status";
 import ConfirmationDialog from "./confirmation-dialog";
 import {
   ConfirmationService,
@@ -238,6 +239,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: H1dr4Agent }) {
               <Text color="yellow">≋ {agent.getCurrentModel()}</Text>
             </Box>
             <MCPStatus />
+            <AlertStatus />
           </Box>
 
           <CommandSuggestions

@@ -12,6 +12,8 @@ import { createMCPCommand } from "./commands/mcp";
 import { createRSSCommand } from "./commands/rss";
 import { createScheduleCommand } from "./commands/schedule";
 import { startAllTasks } from "./schedule/runner";
+import { createAlertCommand } from "./commands/alert";
+import { startAllAlerts } from "./alerts/runner";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 import fs from "fs";
 import path from "path";
@@ -20,7 +22,9 @@ import os from "os";
 // Load environment variables
 dotenv.config();
 startAllTasks();
+startAllAlerts();
 process.on("SIGUSR1", startAllTasks);
+process.on("SIGUSR2", startAllAlerts);
 
 const UI_PID_FILE = path.join(os.homedir(), ".h1dr4", "ui.pid");
 
@@ -472,5 +476,6 @@ gitCommand
 program.addCommand(createMCPCommand());
 program.addCommand(createRSSCommand());
 program.addCommand(createScheduleCommand());
+program.addCommand(createAlertCommand());
 
 program.parse();

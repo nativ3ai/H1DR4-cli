@@ -168,6 +168,14 @@ SCHEDULING TASKS:
 - Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
 - Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation
 
+ALERT MONITORING:
+- Create alerts that run commands on a schedule and trigger when output matches specific text
+- Use \`h1dr4 alert add "<cron>" "<criteria>" "<command>"\` to add an alert
+- Use \`h1dr4 alert list\` to view existing alerts
+- Use \`h1dr4 alert remove <id>\` to delete an alert
+- Use \`h1dr4 alert history\` to view triggered alert events
+- Alerts are stored in \`~/.h1dr4/alerts.json\` and continue running in the background like scheduled tasks
+
 USER CONFIRMATION SYSTEM:
 File operations (create_file, str_replace_editor) and bash commands will automatically request user confirmation before execution. The confirmation system will show users the actual content or command before they decide. Users can choose to approve individual operations or approve all operations of that type for the session.
 

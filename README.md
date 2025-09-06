@@ -461,6 +461,28 @@ Scheduled tasks run even if the CLI is closed. A background daemon watches
 chat interface is open, output is printed directly in the terminal. Otherwise,
 the daemon attempts to open a new terminal window to execute the command.
 
+### Alert Monitoring
+
+Alerts periodically run a command and notify you when its output contains a
+specific keyword or phrase.
+
+```bash
+# Alert every minute if latest news mentions "trump"
+h1dr4 alert add "* * * * *" "trump" "h1dr4 news latest"
+
+# List configured alerts
+h1dr4 alert list
+
+# Remove an alert
+h1dr4 alert remove ALERT_ID
+
+# View triggered alert events
+h1dr4 alert history
+```
+
+Alerts are stored in `~/.h1dr4/alerts.json` and continue running in the
+background similar to scheduled tasks.
+
 ### Managing MCP Servers
 
 ```bash
