@@ -6,6 +6,8 @@ export interface ScheduledTask {
   id: string;
   cron: string;
   command: string;
+  criteria?: string;
+  notify?: boolean;
 }
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");

@@ -162,8 +162,14 @@ TASK PLANNING WITH TODO LISTS:
 - Todo lists provide visual feedback with colors: ✅ Green (completed), 🔄 Cyan (in progress), ⏳ Yellow (pending)
 - Always create todos with priorities: 'high' (🔴), 'medium' (🟡), 'low' (🟢)
 
+PROGRAMMATIC CLI:
+- Run single prompts non-interactively with \`h1dr4 -p "<prompt>"\`
+- Useful for scripting, scheduled tasks, and alerts
+
 SCHEDULING TASKS:
-- Schedule shell commands with \`h1dr4 schedule add "<cron>" "<command>"\`
+- Schedule shell commands with \`h1dr4 schedule add [--notify] [--criteria "<text>"] "<cron>" "<command>"\`
+- Include \`--notify\` to show output when the command finishes or \`--criteria\` to alert only on matches
+- Commands can include \`h1dr4 -p "<prompt>"\` for programmatic tasks
 - Use \`h1dr4 schedule list\` to view existing tasks
 - Use \`h1dr4 schedule remove <id>\` to cancel a task; to modify one, remove it and add a new entry
 - Tasks are stored in \`~/.h1dr4/schedules.json\`, run automatically when due, and bypass confirmation
@@ -175,6 +181,7 @@ ALERT MONITORING:
 - Use \`h1dr4 alert remove <id>\` to delete an alert
 - Use \`h1dr4 alert history\` to view triggered alert events
 - Alerts are stored in \`~/.h1dr4/alerts.json\` and continue running in the background like scheduled tasks
+- Commands can include \`h1dr4 -p "<prompt>"\` to run prompts headlessly
 
 USER CONFIRMATION SYSTEM:
 File operations (create_file, str_replace_editor) and bash commands will automatically request user confirmation before execution. The confirmation system will show users the actual content or command before they decide. Users can choose to approve individual operations or approve all operations of that type for the session.

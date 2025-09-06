@@ -449,6 +449,12 @@ h1dr4 rss remove myfeed
 # Schedule a command using cron syntax
 h1dr4 schedule add "0 9 * * 1" "echo 'weekly task'"
 
+# Notify when the command finishes
+h1dr4 schedule add --notify "0 9 * * 1" "h1dr4 -p 'run daily report'"
+
+# Alert only when output matches text
+h1dr4 schedule add --criteria "success" "0 * * * *" "./script.sh"
+
 # List scheduled tasks
 h1dr4 schedule list
 
@@ -457,9 +463,11 @@ h1dr4 schedule remove TASK_ID
 ```
 
 Scheduled tasks run even if the CLI is closed. A background daemon watches
-`~/.h1dr4/schedules.json` and launches the command at the specified time. If the
-chat interface is open, output is printed directly in the terminal. Otherwise,
-the daemon attempts to open a new terminal window to execute the command.
+`~/.h1dr4/schedules.json` and launches the command at the specified time.
+Use `--notify` to always pop up a terminal with the command output, or
+`--criteria` to alert only when the output contains a specific string.
+Commands may include programmatic prompts via `h1dr4 -p "<prompt>"` to run
+the CLI headlessly.
 
 ### Alert Monitoring
 
@@ -469,6 +477,9 @@ specific keyword or phrase.
 ```bash
 # Alert every minute if latest news mentions "trump"
 h1dr4 alert add "* * * * *" "trump" "h1dr4 news latest"
+
+# Alerts can also run programmatic prompts
+h1dr4 alert add "*/10 * * * *" "passed" "h1dr4 -p 'npm test'"
 
 # List configured alerts
 h1dr4 alert list

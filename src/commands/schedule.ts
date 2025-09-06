@@ -13,10 +13,20 @@ export function createScheduleCommand(): Command {
 
   scheduleCommand
     .command("add <cron> <cmd...>")
-    .description("Schedule a command using a cron expression")
-    .action((cron: string, cmd: string[]) => {
+    .description(
+      "Schedule a command using a cron expression. Optionally notify on completion or only when output matches criteria"
+    )
+    .option("-n, --notify", "Show a notification when the command finishes")
+    .option("-c, --criteria <text>", "Alert only when command output contains text")
+    .action((cron: string, cmd: string[], options: { notify?: boolean; criteria?: string }) => {
       const command = cmd.join(" ");
-      const task = { id: randomUUID(), cron, command };
+      const task = {
+        id: randomUUID(),
+        cron,
+        command,
+        notify: options.notify,
+        criteria: options.criteria,
+      };
       addSchedule(task);
       reloadSchedulers();
       console.log(chalk.green(`✓ Scheduled task ${task.id}`));
@@ -32,7 +42,16 @@ export function createScheduleCommand(): Command {
         return;
       }
       console.log(chalk.bold("Scheduled tasks:"));
-      tasks.forEach((t) => console.log(`${t.id}: ${t.cron} -> ${t.command}`));
+      tasks.forEach((t) => {
+        const flags = [
+          t.notify ? "notify" : null,
+          t.criteria ? `criteria: ${t.criteria}` : null,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        const extra = flags ? ` [${flags}]` : "";
+        console.log(`${t.id}: ${t.cron} -> ${t.command}${extra}`);
+      });
     });
 
   scheduleCommand
