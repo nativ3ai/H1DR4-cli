@@ -7,7 +7,6 @@ import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { isAlertLogged, logAlert } from "./alerts";
 import { getSettingsManager } from "../utils/settings-manager";
-import { H1dr4Client } from "../h1dr4/client";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -150,53 +149,45 @@ function runAlertTask(task: ScheduledTask): void {
       return;
     }
 
-    try {
-      if (!apiKey) {
-        const message = "ERROR: missing API key";
+    // For fuzzy criteria, delegate evaluation to a background h1dr4 CLI query.
+    // We ask the model if the command output meets the criteria, expecting a YES/NO reply.
+    const evalPrompt =
+      `Does the following content satisfy the criteria "${criteria}"? ` +
+      `Respond with YES or NO only.\n\nCONTENT:\n${output}`;
+    const evalChild = spawn("h1dr4", ["-p", evalPrompt], { env });
+
+    let evalOutput = "";
+    evalChild.stdout.on("data", (data) => {
+      evalOutput += data.toString();
+    });
+    evalChild.stderr.on("data", (data) => {
+      evalOutput += data.toString();
+    });
+
+    evalChild.on("close", (evalCode) => {
+      const reply = evalOutput.trim().toLowerCase();
+      if (evalCode !== 0) {
+        const message = `ERROR: criteria evaluation failed with code ${evalCode}${
+          reply ? `\n${reply}` : ""
+        }`;
         logAlert(task.id, message);
+        console.error(message);
         return;
       }
-      const baseURL = manager.getBaseURL();
-      const model = manager.getCurrentModel();
-      const client = new H1dr4Client(apiKey, model, baseURL);
 
-      const messages = [
-        {
-          role: "system" as const,
-          content:
-            "Decide if the command output satisfies the criteria. Respond with YES or NO only.",
-        },
-        {
-          role: "user" as const,
-          content: `Command output:\n${output}\n\nCriteria:\n${criteria}`,
-        },
-      ];
-
-      const resp = await client.chat(messages);
-      const reply = resp.choices[0]?.message.content?.trim().toLowerCase();
-      const match = reply ? /^yes\b/.test(reply) : false;
-
+      const match = /^yes\b/.test(reply);
       if (match) {
-        const message = `ALERT: ${output}`;
+        const message = `Your scheduled job id ${task.id} passed the criteria -> ${output}`;
         if (!isAlertLogged(task.id, message)) {
           logAlert(task.id, message);
-          console.log(`ALERT 🚨 ${output}`);
-          spawnAlertWindow(output, task.alertDuration);
+          console.log(`ALERT 🚨 ${message}`);
+          spawnAlertWindow(message, task.alertDuration);
         }
       } else {
         const message = `NO MATCH: ${output}`;
         logAlert(task.id, message);
         console.log(message);
       }
-    } catch (err: any) {
-      let errorMessage = err?.message || String(err);
-      if (/access to endpoint denied/i.test(errorMessage)) {
-        errorMessage +=
-          " (check that your API key has access to the reasoning endpoint)";
-      }
-      const message = `ERROR: ${errorMessage}`;
-      logAlert(task.id, message);
-      console.error(message);
-    }
+    });
   });
 }
