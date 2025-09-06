@@ -455,6 +455,9 @@ h1dr4 schedule add --notify "0 9 * * 1" "h1dr4 -p 'run daily report'"
 # Alert only when output matches text
 h1dr4 schedule add --criteria "success" "0 * * * *" "./script.sh"
 
+# Limit tool usage for a headless prompt
+h1dr4 schedule add "0 * * * *" "h1dr4 --max-tool-rounds 25 -p 'status check'"
+
 # List scheduled tasks
 h1dr4 schedule list
 
@@ -466,8 +469,8 @@ Scheduled tasks run even if the CLI is closed. A background daemon watches
 `~/.h1dr4/schedules.json` and launches the command at the specified time.
 Use `--notify` to always pop up a terminal with the command output, or
 `--criteria` to alert only when the output contains a specific string.
-Commands may include programmatic prompts via `h1dr4 -p "<prompt>"` to run
-the CLI headlessly.
+Commands may include programmatic prompts like `h1dr4 -p "<prompt>"` and can
+limit tool usage with `--max-tool-rounds` to run the CLI headlessly.
 
 ### Alert Monitoring
 
@@ -479,7 +482,7 @@ specific keyword or phrase.
 h1dr4 alert add "* * * * *" "trump" "h1dr4 news latest"
 
 # Alerts can also run programmatic prompts
-h1dr4 alert add "*/10 * * * *" "passed" "h1dr4 -p 'npm test'"
+h1dr4 alert add "*/10 * * * *" "passed" "h1dr4 --max-tool-rounds 20 -p 'npm test'"
 
 # List configured alerts
 h1dr4 alert list
@@ -492,8 +495,10 @@ h1dr4 alert history
 ```
 
 Alerts are stored in `~/.h1dr4/alerts.json` and continue running in the
-background similar to scheduled tasks. When a match occurs, a new terminal
-window displays the alert details so you don't miss the event.
+background similar to scheduled tasks. Commands may include headless prompts
+like `h1dr4 -p "<prompt>"` and can constrain tool usage with
+`--max-tool-rounds`. When a match occurs, a new terminal window displays the
+alert details so you don't miss the event.
 
 ### Managing MCP Servers
 

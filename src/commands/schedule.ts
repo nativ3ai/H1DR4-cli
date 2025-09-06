@@ -14,7 +14,7 @@ export function createScheduleCommand(): Command {
   scheduleCommand
     .command("add <cron> <cmd...>")
     .description(
-      "Schedule a command using a cron expression. Optionally notify on completion or only when output matches criteria"
+      "Schedule a command using a cron expression. Optionally notify on completion or only when output matches criteria. Commands may include headless prompts via `h1dr4 -p`/`--prompt` and `--max-tool-rounds`"
     )
     .option("-n, --notify", "Show a notification when the command finishes")
     .option("-c, --criteria <text>", "Alert only when command output contains text")
@@ -62,6 +62,11 @@ export function createScheduleCommand(): Command {
       reloadSchedulers();
       console.log(chalk.green(`✓ Removed task ${id}`));
     });
+  
+  scheduleCommand.addHelpText(
+    "after",
+    `\nExamples:\n  # weekly summary every Monday at 9am\n  h1dr4 schedule add "0 9 * * 1" "h1dr4 -p 'run weekly summary'"\n\n  # alert when a script output contains success and show a popup\n  h1dr4 schedule add --notify --criteria "success" "*/30 * * * *" "./script.sh"\n\n  # limit tool rounds for a headless prompt\n  h1dr4 schedule add "0 * * * *" "h1dr4 --max-tool-rounds 25 -p 'check status'"\n`
+  );
 
   return scheduleCommand;
 }

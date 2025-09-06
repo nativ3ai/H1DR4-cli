@@ -16,7 +16,7 @@ export function createAlertCommand(): Command {
   alertCommand
     .command("add <cron> <criteria> <cmd...>")
     .description(
-      "Add an alert with cron schedule, match text, and command to run"
+      "Add an alert with cron schedule, match text, and shell command to run. Commands may include headless prompts via `h1dr4 -p`/`--prompt` and options like `--max-tool-rounds`"
     )
     .action((cron: string, criteria: string, cmd: string[]) => {
       const command = cmd.join(" ");
@@ -67,7 +67,7 @@ export function createAlertCommand(): Command {
 
   alertCommand.addHelpText(
     "after",
-    `\nExamples:\n  # alert if latest news mentions trump\n  h1dr4 alert add "* * * * *" "trump" "h1dr4 news latest"\n  \n  # list configured alerts\n  h1dr4 alert list\n  \n  # show triggered events\n  h1dr4 alert history\n`
+    `\nExamples:\n  # alert if latest news mentions trump\n  h1dr4 alert add "* * * * *" "trump" "h1dr4 news latest"\n\n  # run a headless prompt every 10 minutes and alert when output contains 'passed'\n  h1dr4 alert add "*/10 * * * *" "passed" "h1dr4 --max-tool-rounds 20 -p 'npm test'"\n\n  # list configured alerts\n  h1dr4 alert list\n\n  # show triggered events\n  h1dr4 alert history\n`
   );
 
   return alertCommand;
