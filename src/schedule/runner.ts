@@ -1,5 +1,5 @@
 import schedule from "node-schedule";
-import { spawn, exec } from "child_process";
+import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -7,7 +7,6 @@ import { loadSchedules, ScheduledTask } from "./config";
 import { ConfirmationService } from "../utils/confirmation-service";
 import { isAlertLogged, logAlert } from "./alerts";
 import { getSettingsManager } from "../utils/settings-manager";
-import { H1dr4Client } from "../h1dr4/client";
 
 const CONFIG_FILE = path.join(os.homedir(), ".h1dr4", "schedules.json");
 let watcher: fs.FSWatcher | null = null;
@@ -37,13 +36,38 @@ function spawnInTerminal(command: string): void {
   const platform = process.platform;
   if (platform === "win32") {
     spawn("cmd", ["/c", "start", "cmd", "/k", command], { detached: true });
-  } else if (platform === "darwin") {
+    return;
+  }
+
+  if (platform === "darwin") {
     const osa = `tell application \"Terminal\" to do script \"${command.replace(/"/g, '\\"')}\"`;
     spawn("osascript", ["-e", osa], { detached: true });
-  } else {
-    const term = process.env.TERM_PROGRAM || "x-terminal-emulator";
-    spawn(term, ["-e", command], { detached: true });
+    return;
   }
+
+  // Linux/Unix: attempt common terminals, falling back if spawning fails.
+  const terminals = [
+    process.env.TERM_PROGRAM,
+    "x-terminal-emulator",
+    "gnome-terminal",
+    "xterm",
+  ].filter(Boolean) as string[];
+
+  const trySpawn = (idx: number): void => {
+    const term = terminals[idx];
+    if (!term) {
+      console.error("Failed to spawn terminal for alert window");
+      return;
+    }
+    const child = spawn(term, ["-e", "bash", "-lc", command], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.on("error", () => trySpawn(idx + 1));
+    child.unref();
+  };
+
+  trySpawn(0);
 }
 
 function runTask(task: ScheduledTask): void {
@@ -66,15 +90,22 @@ function spawnAlertWindow(message: string, duration?: number): void {
     typeof duration === "number"
       ? duration
       : parseInt(process.env.H1DR4_ALERT_DURATION || "30000", 10);
-  const nodeCmd =
-    dur > 0
-      ? `${process.execPath} -e "console.log(${JSON.stringify(
-          "ALERT 🚨 " + message,
-        )}); setTimeout(()=>process.exit(0), ${dur})"`
-      : `${process.execPath} -e "console.log(${JSON.stringify(
-          "ALERT 🚨 " + message,
-        )}); setInterval(()=>{}, 1e8)"`;
-  spawnInTerminal(nodeCmd);
+  const sleepSeconds = dur > 0 ? Math.ceil(dur / 1000) : 0;
+
+  const scriptPath = path.join(
+    os.tmpdir(),
+    `h1dr4-alert-${Date.now()}-${Math.random().toString(16).slice(2)}.sh`
+  );
+  const script = [
+    "#!/usr/bin/env bash",
+    "printf '\\a'",
+    `echo ${JSON.stringify(`ALERT 🚨 ${message}`)}`,
+    `sleep ${sleepSeconds || 100000000}`,
+  ].join("\n");
+  fs.writeFileSync(scriptPath, script, { mode: 0o700 });
+  spawnInTerminal(`bash ${scriptPath}`);
+  // Clean up after a short delay; terminal holds a copy after spawn
+  setTimeout(() => fs.unlink(scriptPath, () => {}), 60_000);
 }
 
 function runAlertTask(task: ScheduledTask): void {
@@ -84,14 +115,44 @@ function runAlertTask(task: ScheduledTask): void {
   if (apiKey) {
     env.GROK_API_KEY = apiKey;
   }
+  env.H1DR4_MODEL = env.H1DR4_MODEL || "grok-3-latest";
 
   // Log the command execution attempt for troubleshooting
   logAlert(task.id, `RUN: ${task.command}`);
 
-  exec(task.command, { env }, async (error, stdout, stderr) => {
-    const output = (stdout + stderr).trim();
-    if (error) {
-      const message = `ERROR: ${error.message}${output ? `\n${output}` : ""}`;
+  // Execute the alert command inside a login shell so it behaves the same way
+  // as commands launched via `schedule add`. This ensures user profiles and
+  // PATH lookups are applied even when the daemon runs in the background.
+  const child = spawn("bash", ["-lc", task.command], { env });
+  let output = "";
+
+  child.stdout.on("data", (data) => {
+    output += data.toString();
+    if (process.stdout.isTTY) {
+      process.stdout.write(data);
+    }
+  });
+
+  child.stderr.on("data", (data) => {
+    output += data.toString();
+    if (process.stderr.isTTY) {
+      process.stderr.write(data);
+    }
+  });
+
+  child.on("error", (err) => {
+    const message = `ERROR: failed to run command - ${err.message}`;
+    logAlert(task.id, message);
+    console.error(message);
+  });
+
+  child.on("close", async (code) => {
+    output = output.trim();
+
+    if (code !== 0) {
+      const message = `ERROR: command exited with code ${code}${
+        output ? `\n${output}` : ""
+      }`;
       logAlert(task.id, message);
       console.error(message);
       return;
@@ -122,48 +183,59 @@ function runAlertTask(task: ScheduledTask): void {
       return;
     }
 
-    try {
-      if (!apiKey) {
-        const message = "ERROR: missing API key";
+    // For fuzzy criteria, delegate evaluation to a background h1dr4 CLI query.
+    // We ask the model if the command output meets the criteria, expecting a YES/NO reply.
+    const evalPrompt =
+      `Does the following content contain "${criteria}"? ` +
+      `Reply with YES or NO only.\n\nCONTENT:\n${output}`;
+    // Run the criteria check through a login shell as well so the `h1dr4`
+    // binary is resolved using the user's environment. We quote the prompt via
+    // JSON.stringify to preserve newlines and other characters.
+    const evalCmd = `h1dr4 -p ${JSON.stringify(evalPrompt)} -m ${env.H1DR4_MODEL}`;
+    const evalChild = spawn("bash", ["-lc", evalCmd], { env });
+
+    let evalOutput = "";
+    evalChild.stdout.on("data", (data) => {
+      evalOutput += data.toString();
+    });
+    evalChild.stderr.on("data", (data) => {
+      evalOutput += data.toString();
+    });
+
+    evalChild.on("error", (err) => {
+      const message = `ERROR: criteria process failed to start - ${err.message}`;
+      logAlert(task.id, message);
+      console.error(message);
+    });
+
+    evalChild.on("close", (evalCode) => {
+      const reply = evalOutput.trim().toLowerCase();
+      if (evalCode !== 0 || /403/.test(reply) || /error:/i.test(reply)) {
+        const msg =
+          /403/.test(reply)
+            ? "API key lacks permission for criteria evaluation"
+            : `criteria evaluation failed${
+                evalCode !== 0 ? ` with code ${evalCode}` : ""
+              }`;
+        const message = `ERROR: ${msg}${reply ? `\n${reply}` : ""}`;
         logAlert(task.id, message);
+        console.error(message);
         return;
       }
-      const baseURL = manager.getBaseURL();
-      const model = manager.getCurrentModel();
-      const client = new H1dr4Client(apiKey, model, baseURL);
 
-      const messages = [
-        {
-          role: "system" as const,
-          content:
-            "Decide if the command output satisfies the criteria. Respond with YES or NO only.",
-        },
-        {
-          role: "user" as const,
-          content: `Command output:\n${output}\n\nCriteria:\n${criteria}`,
-        },
-      ];
-
-      const resp = await client.chat(messages);
-      const reply = resp.choices[0]?.message.content?.trim().toLowerCase();
-      const match = reply === "yes";
-
+      const match = /\byes\b/.test(reply);
       if (match) {
-        const message = `ALERT: ${output}`;
+        const message = `Your scheduled job id ${task.id} passed the criteria -> ${output}`;
         if (!isAlertLogged(task.id, message)) {
           logAlert(task.id, message);
-          console.log(`ALERT 🚨 ${output}`);
-          spawnAlertWindow(output, task.alertDuration);
+          console.log(`ALERT 🚨 ${message}`);
+          spawnAlertWindow(message, task.alertDuration);
         }
       } else {
         const message = `NO MATCH: ${output}`;
         logAlert(task.id, message);
         console.log(message);
       }
-    } catch (err: any) {
-      const message = `ERROR: ${err?.message || err}`;
-      logAlert(task.id, message);
-      console.error(message);
-    }
+    });
   });
 }

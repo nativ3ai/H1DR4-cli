@@ -317,7 +317,7 @@ program
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
+    "AI model to use (e.g., gemini-2.5-pro, grok-3-latest) (or set H1DR4_MODEL env var)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -395,7 +395,7 @@ gitCommand
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
+    "AI model to use (e.g., gemini-2.5-pro, grok-3-latest) (or set H1DR4_MODEL env var)"
   )
   .option(
     "--max-tool-rounds <rounds>",
