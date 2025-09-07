@@ -1,8 +1,4 @@
 import axios from "axios";
-import { createConfig } from "@wagmi/core";
-import { http, createWalletClient } from "viem";
-import { polygon } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
 import { ToolResult } from "../types";
 
 // Singleton Polymarket tool to share wallet connection across CLI and agent
@@ -12,13 +8,30 @@ export class PolymarketTool {
   private clobBase = "https://clob.polymarket.com";
   private walletClient: any = null;
   private address?: `0x${string}`;
-  private config = createConfig({
-    chains: [polygon],
-    transports: { [polygon.id]: http() },
-  });
+
+  // Dependencies loaded lazily to avoid CommonJS/ESM interop issues
+  private deps: any | null = null;
+
+  private async loadDeps() {
+    if (this.deps) return;
+    const wagmi = await new Function("return import('@wagmi/core')")();
+    const viem = await new Function("return import('viem')")();
+    const chains = await new Function("return import('viem/chains')")();
+    const accounts = await new Function("return import('viem/accounts')")();
+    this.deps = {
+      createConfig: wagmi.createConfig,
+      http: viem.http,
+      createWalletClient: viem.createWalletClient,
+      polygon: chains.polygon,
+      privateKeyToAccount: accounts.privateKeyToAccount,
+    };
+  }
 
   async connectWallet(privateKey: string): Promise<ToolResult> {
     try {
+      await this.loadDeps();
+      const { privateKeyToAccount, createWalletClient, polygon, http } = this
+        .deps!;
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       this.walletClient = createWalletClient({
         account,
