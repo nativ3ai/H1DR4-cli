@@ -16,6 +16,8 @@ import {
   SearchTool,
   OSINTTool,
   ReasoningWorker,
+  PolymarketTool,
+  getPolymarketTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -52,6 +54,7 @@ export class H1dr4Agent extends EventEmitter {
   private search: SearchTool;
   private osint: OSINTTool;
   private reasoningWorker: ReasoningWorker;
+  private polymarket: PolymarketTool;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -88,6 +91,7 @@ export class H1dr4Agent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
+    this.polymarket = getPolymarketTool();
     this.reasoningWorker = new ReasoningWorker();
     this.tokenCounter = createTokenCounter(modelToUse);
 
@@ -750,6 +754,9 @@ Current working directory: ${process.cwd()}`,
               searchResponse.choices[0]?.message?.content ||
               "No results returned",
           };
+
+        case "polymarket":
+          return await this.polymarket.execute(args);
 
         case "reason":
           const confirmation = await this.confirmationTool.requestConfirmation({

@@ -310,6 +310,44 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "polymarket",
+      description:
+        "Interact with Polymarket prediction markets. Operations: get_markets, get_positions, place_order (trade). Requires wallet connection via 'polymarket connect-wallet'.",
+      parameters: {
+        type: "object",
+        properties: {
+          operation: {
+            type: "string",
+            enum: ["get_markets", "get_positions", "place_order"],
+            description: "Operation to perform",
+          },
+          marketId: {
+            type: "string",
+            description: "Market ID for trading",
+          },
+          outcome: {
+            type: "string",
+            description: "Outcome ID for trading",
+          },
+          side: {
+            type: "string",
+            enum: ["buy", "sell"],
+            description: "Order side",
+          },
+          price: { type: "number", description: "Price from 0 to 1" },
+          size: { type: "number", description: "Number of shares" },
+          userAddress: {
+            type: "string",
+            description: "Wallet address for position queries",
+          },
+        },
+        required: ["operation"],
+      },
+    },
+  },
 ];
 
 // Morph Fast Apply tool (conditional)

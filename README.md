@@ -14,6 +14,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
+- **📈 Polymarket Trading**: Connect your wallet and trade directly from the CLI using Polymarket APIs
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
 - While the agent is executing tasks, you can continue typing new requests.
 These messages are queued and the active plan is updated on the fly—no need
@@ -157,6 +158,16 @@ This mode is particularly useful for:
 - **Scripting**: Integrate AI assistance into shell scripts
 - **Terminal benchmarks**: Perfect for tools like Terminal Bench that need non-interactive execution
 - **Batch processing**: Process multiple prompts programmatically
+
+## Polymarket Trading
+
+Connect your wallet before issuing trading commands:
+
+```bash
+h1dr4 polymarket connect-wallet --private-key <hexKey>
+```
+
+After connecting, you can ask the assistant to fetch Polymarket markets, check positions, or place trades directly from the CLI.
 
 ### Tool Execution Control
 
