@@ -2,6 +2,14 @@ import axios from "axios";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { Wallet } from "@ethersproject/wallet";
+import {
+  ApiKeyCreds,
+  ClobClient,
+  OrderType,
+  Side,
+  createL2Headers,
+} from "@polymarket/clob-client";
 import { ToolResult } from "../types";
 
 // Singleton Polymarket tool to share wallet connection across CLI and agent
@@ -9,136 +17,243 @@ export class PolymarketTool {
   private gammaBase = "https://gamma-api.polymarket.com";
   private dataBase = "https://data-api.polymarket.com";
   private clobBase = "https://clob.polymarket.com";
-  private walletClient: any = null;
-  private address?: `0x${string}`;
-  private walletPath = path.join(os.homedir(), ".h1dr4", "polymarket-wallet.json");
+  private signer?: Wallet;
+  private clobClient?: ClobClient;
+  private apiCreds?: ApiKeyCreds;
+  private address?: string;
+  private walletPath = path.join(
+    os.homedir(),
+    ".h1dr4",
+    "polymarket-wallet.json"
+  );
 
-  // Dependencies loaded lazily to avoid CommonJS/ESM interop issues
-  private deps: any | null = null;
-
-  private async loadDeps() {
-    if (this.deps) return;
-    const wagmi = await new Function("return import('@wagmi/core')")();
-    const viem = await new Function("return import('viem')")();
-    const chains = await new Function("return import('viem/chains')")();
-    const accounts = await new Function("return import('viem/accounts')")();
-    this.deps = {
-      createConfig: wagmi.createConfig,
-      http: viem.http,
-      createWalletClient: viem.createWalletClient,
-      polygon: chains.polygon,
-      privateKeyToAccount: accounts.privateKeyToAccount,
-    };
+  private ensureEndpoint(endpoint: string): string {
+    return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   }
 
-  async connectWallet(privateKey: string): Promise<ToolResult> {
+  private async saveWallet(privateKey: string, creds: ApiKeyCreds) {
+    await fs.promises.mkdir(path.dirname(this.walletPath), { recursive: true });
+    await fs.promises.writeFile(
+      this.walletPath,
+      JSON.stringify({
+        privateKey,
+        apiKey: creds.key,
+        apiSecret: creds.secret,
+        passphrase: creds.passphrase,
+      }),
+      "utf-8"
+    );
+  }
+
+  async connectWallet(
+    privateKey: string,
+    signatureType = 0,
+    funder?: string
+  ): Promise<ToolResult> {
     try {
-      await this.loadDeps();
-      const { privateKeyToAccount, createWalletClient, polygon, http } = this
-        .deps!;
-      const account = privateKeyToAccount(privateKey as `0x${string}`);
-      this.walletClient = createWalletClient({
-        account,
-        chain: polygon,
-        transport: http(),
-      });
-      this.address = account.address;
-      await fs.promises.mkdir(path.dirname(this.walletPath), { recursive: true });
-      await fs.promises.writeFile(this.walletPath, JSON.stringify({ privateKey }), "utf-8");
+      this.signer = new Wallet(privateKey);
+      this.address = await this.signer.getAddress();
+      const tmpClient = new ClobClient(
+        this.clobBase,
+        137,
+        this.signer,
+        undefined,
+        signatureType,
+        funder
+      );
+      const creds = await tmpClient.createOrDeriveApiKey();
+      this.clobClient = new ClobClient(
+        this.clobBase,
+        137,
+        this.signer,
+        creds,
+        signatureType,
+        funder
+      );
+      this.apiCreds = creds;
+      await this.saveWallet(privateKey, creds);
+      return { success: true, output: `Connected wallet ${this.address}` };
+    } catch (error: any) {
       return {
-        success: true,
-        output: `Connected wallet ${account.address}`,
+        success: false,
+        error: `Wallet connection failed: ${error.message}`,
       };
-    } catch (error: any) {
-      return { success: false, error: `Wallet connection failed: ${error.message}` };
-    }
-  }
-
-  getAddress(): string | undefined {
-    return this.address;
-  }
-
-  async getMarkets(): Promise<ToolResult> {
-    try {
-      const response = await axios.get(`${this.gammaBase}/markets`, {
-        params: { closed: false, order: "volume", ascending: false },
-      });
-      return { success: true, data: response.data, output: JSON.stringify(response.data) };
-    } catch (error: any) {
-      return { success: false, error: `Failed to fetch markets: ${error.message}` };
     }
   }
 
   private async loadSavedWallet() {
-    if (this.walletClient && this.address) return;
+    if (this.signer && this.address && this.apiCreds && this.clobClient) return;
     try {
       const raw = await fs.promises.readFile(this.walletPath, "utf-8");
-      const { privateKey } = JSON.parse(raw);
-      if (privateKey) {
-        await this.connectWallet(privateKey);
+      const { privateKey, apiKey, apiSecret, passphrase } = JSON.parse(raw);
+      if (!privateKey) return;
+      this.signer = new Wallet(privateKey);
+      this.address = await this.signer.getAddress();
+      if (apiKey && apiSecret && passphrase) {
+        const creds: ApiKeyCreds = {
+          key: apiKey,
+          secret: apiSecret,
+          passphrase,
+        };
+        this.clobClient = new ClobClient(
+          this.clobBase,
+          137,
+          this.signer,
+          creds
+        );
+        this.apiCreds = creds;
+      } else {
+        this.clobClient = new ClobClient(this.clobBase, 137, this.signer);
       }
     } catch {
       /* no persisted wallet */
     }
   }
 
-  async getPositions(userAddress?: string): Promise<ToolResult> {
+  async gammaRequest(
+    endpoint: string,
+    params?: Record<string, any>
+  ): Promise<ToolResult> {
+    try {
+      const ep = this.ensureEndpoint(endpoint);
+      const response = await axios.get(`${this.gammaBase}${ep}`, { params });
+      return {
+        success: true,
+        data: response.data,
+        output: JSON.stringify(response.data),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Gamma request failed: ${error.message}`,
+      };
+    }
+  }
+
+  async dataRequest(
+    endpoint: string,
+    params?: Record<string, any>
+  ): Promise<ToolResult> {
+    try {
+      const ep = this.ensureEndpoint(endpoint);
+      const response = await axios.get(`${this.dataBase}${ep}`, { params });
+      return {
+        success: true,
+        data: response.data,
+        output: JSON.stringify(response.data),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Data request failed: ${error.message}`,
+      };
+    }
+  }
+
+  private async clobRequest(
+    method: "GET" | "POST",
+    endpoint: string,
+    params?: Record<string, any>,
+    body?: any
+  ): Promise<ToolResult> {
     await this.loadSavedWallet();
-    const address = userAddress || this.address;
-    if (!address) {
+    if (!this.signer || !this.apiCreds) {
       return { success: false, error: "Wallet not connected" };
     }
     try {
-      const response = await axios.get(`${this.dataBase}/positions`, {
-        params: { user: address },
+      const ep = this.ensureEndpoint(endpoint);
+      const query = params
+        ? `?${new URLSearchParams(params as any).toString()}`
+        : "";
+      const requestPath = `${ep}${query}`;
+      const bodyStr = body ? JSON.stringify(body) : "";
+      const headers = await createL2Headers(this.signer, this.apiCreds, {
+        method,
+        requestPath,
+        body: bodyStr,
       });
-      return { success: true, data: response.data, output: JSON.stringify(response.data) };
+      const url = `${this.clobBase}${requestPath}`;
+      const response =
+        method === "GET"
+          ? await axios.get(url, { headers })
+          : await axios.post(url, body, { headers });
+      return {
+        success: true,
+        data: response.data,
+        output: JSON.stringify(response.data),
+      };
     } catch (error: any) {
-      return { success: false, error: `Failed to fetch positions: ${error.message}` };
+      return { success: false, error: `CLOB request failed: ${error.message}` };
     }
   }
 
   async placeOrder(
-    marketId: string,
-    outcome: string,
-    side: "buy" | "sell",
+    tokenId: string,
     price: number,
-    size: number
+    size: number,
+    side: "buy" | "sell"
   ): Promise<ToolResult> {
     await this.loadSavedWallet();
-    if (!this.walletClient || !this.address) {
+    if (!this.clobClient) {
       return { success: false, error: "Wallet not connected" };
     }
     try {
-      const order = { marketId, outcome, side, price, size, address: this.address };
-      const signature = await this.walletClient.signMessage({
-        account: this.address,
-        message: JSON.stringify(order),
-      });
-      const response = await axios.post(`${this.clobBase}/orders`, {
-        ...order,
-        signature,
-      });
-      return { success: true, data: response.data, output: JSON.stringify(response.data) };
+      const tickSize = await this.clobClient.getTickSize(tokenId);
+      const negRisk = await this.clobClient.getNegRisk(tokenId);
+      const order = await this.clobClient.createAndPostOrder(
+        { tokenID: tokenId, price, size, side: side === "buy" ? Side.BUY : Side.SELL },
+        { tickSize, negRisk },
+        OrderType.GTC
+      );
+      return {
+        success: true,
+        data: order,
+        output: JSON.stringify(order),
+      };
     } catch (error: any) {
       return { success: false, error: `Order failed: ${error.message}` };
     }
   }
 
+  async cancelOrder(orderId: string): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      return { success: false, error: "Wallet not connected" };
+    }
+    try {
+      const resp = await this.clobClient.cancelOrder({ orderID: orderId });
+      return {
+        success: true,
+        data: resp,
+        output: JSON.stringify(resp),
+      };
+    } catch (error: any) {
+      return { success: false, error: `Cancel failed: ${error.message}` };
+    }
+  }
+
   async execute(args: any): Promise<ToolResult> {
     switch (args.operation) {
-      case "get_markets":
-        return this.getMarkets();
-      case "get_positions":
-        return this.getPositions(args.userAddress);
+      case "gamma_request":
+        return this.gammaRequest(args.endpoint, args.params);
+      case "data_request":
+        return this.dataRequest(args.endpoint, args.params);
+      case "clob_request":
+        return this.clobRequest(
+          (args.method || "GET").toUpperCase(),
+          args.endpoint,
+          args.params,
+          args.body
+        );
       case "place_order":
         return this.placeOrder(
-          args.marketId,
-          args.outcome,
-          args.side,
+          args.tokenId,
           args.price,
-          args.size
+          args.size,
+          args.side
         );
+      case "cancel_order":
+        return this.cancelOrder(args.orderId);
       default:
         return { success: false, error: `Unknown operation ${args.operation}` };
     }
@@ -150,4 +265,3 @@ export function getPolymarketTool(): PolymarketTool {
   if (!instance) instance = new PolymarketTool();
   return instance;
 }
-

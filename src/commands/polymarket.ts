@@ -7,12 +7,27 @@ export function createPolymarketCommand(): Command {
 
   pmCommand
     .command("connect-wallet")
-    .description("Connect a wallet using a private key (MetaMask or other)")
+    .description(
+      "Connect a wallet using a private key (EOA, MetaMask, or Magic Link)"
+    )
     .requiredOption("-k, --private-key <key>", "Private key for the wallet")
+    .option(
+      "-s, --signature-type <type>",
+      "Signature type: 0=EOA, 1=Magic Link, 2=MetaMask",
+      "0"
+    )
+    .option(
+      "-f, --funder <address>",
+      "Proxy/funder address for Magic Link or MetaMask logins"
+    )
     .action(async (options) => {
       try {
         const tool = getPolymarketTool();
-        const result = await tool.connectWallet(options.privateKey);
+        const result = await tool.connectWallet(
+          options.privateKey,
+          Number(options.signatureType),
+          options.funder
+        );
         if (result.success) {
           console.log(result.output);
         } else {

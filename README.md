@@ -165,10 +165,16 @@ Connect your wallet before issuing trading commands:
 
 ```bash
 h1dr4 polymarket connect-wallet --private-key <hexKey>
+# optional flags:
+#   --signature-type 0|1|2  (0=EOA, 1=Magic Link, 2=MetaMask)
+#   --funder <proxyAddress> (needed for 1 or 2)
 ```
 
-The key is stored locally at `~/.h1dr4/polymarket-wallet.json` so future commands and agent sessions can reuse the connection.
-After connecting, you can ask the assistant to fetch Polymarket markets, check positions, or place trades directly from the CLI.
+The key is stored locally at `~/.h1dr4/polymarket-wallet.json` so future commands and agent sessions can reuse the connection. After connecting, you can ask the assistant to fetch Polymarket markets, check positions, or place trades directly from the CLI.
+
+- Markets are retrieved using `closed=false` and sorted by volume so only currently tradeable markets are shown.
+- The agent can query any Gamma, Data, or CLOB endpoint by specifying filters in natural language, enabling flexible market discovery and analytics.
+- Wallet connection automatically creates an API key pair for L2 authentication, allowing the agent to place and cancel orders through the CLOB API.
 
 ### Tool Execution Control
 

@@ -315,22 +315,41 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     function: {
       name: "polymarket",
       description:
-        "Interact with Polymarket prediction markets. Operations: get_markets, get_positions, place_order (trade). Requires wallet connection via 'polymarket connect-wallet'.",
+        "Interact with Polymarket prediction markets and trading API. Operations: gamma_request, data_request, clob_request, place_order, cancel_order. Requires wallet connection via 'polymarket connect-wallet'.",
       parameters: {
         type: "object",
         properties: {
           operation: {
             type: "string",
-            enum: ["get_markets", "get_positions", "place_order"],
+            enum: [
+              "gamma_request",
+              "data_request",
+              "clob_request",
+              "place_order",
+              "cancel_order",
+            ],
             description: "Operation to perform",
           },
-          marketId: {
+          endpoint: {
             type: "string",
-            description: "Market ID for trading",
+            description: "API endpoint path (e.g. '/markets')",
           },
-          outcome: {
+          params: {
+            type: "object",
+            description: "Query parameters for the request",
+          },
+          method: {
             type: "string",
-            description: "Outcome ID for trading",
+            enum: ["GET", "POST"],
+            description: "HTTP method for clob_request",
+          },
+          body: {
+            type: "object",
+            description: "Request body for clob_request",
+          },
+          tokenId: {
+            type: "string",
+            description: "Token ID for trading",
           },
           side: {
             type: "string",
@@ -339,9 +358,9 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
           },
           price: { type: "number", description: "Price from 0 to 1" },
           size: { type: "number", description: "Number of shares" },
-          userAddress: {
+          orderId: {
             type: "string",
-            description: "Wallet address for position queries",
+            description: "Order ID for cancellation",
           },
         },
         required: ["operation"],
