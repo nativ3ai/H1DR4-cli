@@ -167,6 +167,7 @@ Connect your wallet before issuing trading commands:
 h1dr4 polymarket connect-wallet --private-key <hexKey>
 ```
 
+The key is stored locally at `~/.h1dr4/polymarket-wallet.json` so future commands and agent sessions can reuse the connection.
 After connecting, you can ask the assistant to fetch Polymarket markets, check positions, or place trades directly from the CLI.
 
 ### Tool Execution Control

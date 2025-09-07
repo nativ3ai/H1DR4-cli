@@ -1,4 +1,7 @@
 import axios from "axios";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { ToolResult } from "../types";
 
 // Singleton Polymarket tool to share wallet connection across CLI and agent
@@ -8,6 +11,7 @@ export class PolymarketTool {
   private clobBase = "https://clob.polymarket.com";
   private walletClient: any = null;
   private address?: `0x${string}`;
+  private walletPath = path.join(os.homedir(), ".h1dr4", "polymarket-wallet.json");
 
   // Dependencies loaded lazily to avoid CommonJS/ESM interop issues
   private deps: any | null = null;
@@ -39,6 +43,8 @@ export class PolymarketTool {
         transport: http(),
       });
       this.address = account.address;
+      await fs.promises.mkdir(path.dirname(this.walletPath), { recursive: true });
+      await fs.promises.writeFile(this.walletPath, JSON.stringify({ privateKey }), "utf-8");
       return {
         success: true,
         output: `Connected wallet ${account.address}`,
@@ -55,7 +61,7 @@ export class PolymarketTool {
   async getMarkets(): Promise<ToolResult> {
     try {
       const response = await axios.get(`${this.gammaBase}/markets`, {
-        params: { active: true },
+        params: { closed: false, order: "volume", ascending: false },
       });
       return { success: true, data: response.data, output: JSON.stringify(response.data) };
     } catch (error: any) {
@@ -63,7 +69,21 @@ export class PolymarketTool {
     }
   }
 
+  private async loadSavedWallet() {
+    if (this.walletClient && this.address) return;
+    try {
+      const raw = await fs.promises.readFile(this.walletPath, "utf-8");
+      const { privateKey } = JSON.parse(raw);
+      if (privateKey) {
+        await this.connectWallet(privateKey);
+      }
+    } catch {
+      /* no persisted wallet */
+    }
+  }
+
   async getPositions(userAddress?: string): Promise<ToolResult> {
+    await this.loadSavedWallet();
     const address = userAddress || this.address;
     if (!address) {
       return { success: false, error: "Wallet not connected" };
@@ -85,6 +105,7 @@ export class PolymarketTool {
     price: number,
     size: number
   ): Promise<ToolResult> {
+    await this.loadSavedWallet();
     if (!this.walletClient || !this.address) {
       return { success: false, error: "Wallet not connected" };
     }
