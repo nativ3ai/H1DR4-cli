@@ -9,6 +9,7 @@ import {
   OrderType,
   Side,
   createL2Headers,
+  AssetType,
 } from "@polymarket/clob-client";
 import { ToolResult } from "../types";
 
@@ -189,6 +190,76 @@ export class PolymarketTool {
     }
   }
 
+  async getBalance(
+    assetType: AssetType = AssetType.COLLATERAL,
+    tokenId?: string
+  ): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      return { success: false, error: "Wallet not connected" };
+    }
+    try {
+      const resp = await this.clobClient.getBalanceAllowance({
+        asset_type: assetType,
+        token_id: tokenId,
+      });
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Balance request failed: ${error.message}`,
+      };
+    }
+  }
+
+  async getOpenOrders(params?: {
+    market?: string;
+    assetId?: string;
+  }): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      return { success: false, error: "Wallet not connected" };
+    }
+    try {
+      const resp = await this.clobClient.getOpenOrders({
+        market: params?.market,
+        asset_id: params?.assetId,
+      });
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Get orders failed: ${error.message}`,
+      };
+    }
+  }
+
+  async getTrades(params?: {
+    market?: string;
+    assetId?: string;
+    maker?: string;
+    taker?: string;
+  }): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      return { success: false, error: "Wallet not connected" };
+    }
+    try {
+      const resp = await this.clobClient.getTrades({
+        market: params?.market,
+        asset_id: params?.assetId,
+        maker: params?.maker,
+        taker: params?.taker,
+      } as any);
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Get trades failed: ${error.message}`,
+      };
+    }
+  }
+
   async placeOrder(
     tokenId: string,
     price: number,
@@ -247,6 +318,17 @@ export class PolymarketTool {
           args.params,
           args.body
         );
+      case "get_balance":
+        return this.getBalance(args.assetType as AssetType, args.tokenId);
+      case "get_open_orders":
+        return this.getOpenOrders({ market: args.market, assetId: args.assetId });
+      case "get_trades":
+        return this.getTrades({
+          market: args.market,
+          assetId: args.assetId,
+          maker: args.maker,
+          taker: args.taker,
+        });
       case "place_order":
         return this.placeOrder(
           args.tokenId,

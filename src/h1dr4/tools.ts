@@ -315,7 +315,7 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     function: {
       name: "polymarket",
       description:
-        "Interact with Polymarket prediction markets and trading API. Operations: gamma_request, data_request, clob_request, place_order, cancel_order. Requires wallet connection via 'polymarket connect-wallet'.",
+        "Interact with Polymarket prediction markets and trading API. Operations: gamma_request, data_request, clob_request, get_balance, get_open_orders, get_trades, place_order, cancel_order. Requires wallet connection via 'polymarket connect-wallet'.",
       parameters: {
         type: "object",
         properties: {
@@ -325,6 +325,9 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
               "gamma_request",
               "data_request",
               "clob_request",
+              "get_balance",
+              "get_open_orders",
+              "get_trades",
               "place_order",
               "cancel_order",
             ],
@@ -347,9 +350,30 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
             type: "object",
             description: "Request body for clob_request",
           },
+          assetType: {
+            type: "string",
+            description:
+              "Asset type for balance queries (COLLATERAL or CONDITIONAL)",
+          },
           tokenId: {
             type: "string",
-            description: "Token ID for trading",
+            description: "Token ID for trading or balance lookup",
+          },
+          market: {
+            type: "string",
+            description: "Market/condition ID for order or trade queries",
+          },
+          assetId: {
+            type: "string",
+            description: "Specific asset ID for order or trade queries",
+          },
+          maker: {
+            type: "string",
+            description: "Maker address filter for trades",
+          },
+          taker: {
+            type: "string",
+            description: "Taker address filter for trades",
           },
           side: {
             type: "string",

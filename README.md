@@ -175,6 +175,7 @@ The key is stored locally at `~/.h1dr4/polymarket-wallet.json` so future command
 - Markets are retrieved using `closed=false` and sorted by volume so only currently tradeable markets are shown.
 - The agent can query any Gamma, Data, or CLOB endpoint by specifying filters in natural language, enabling flexible market discovery and analytics.
 - Wallet connection automatically creates an API key pair for L2 authentication, allowing the agent to place and cancel orders through the CLOB API.
+- Balance checks, open orders, and trade history use dedicated CLOB methods (e.g. `getBalanceAllowance`, `getOpenOrders`, `getTrades`) rather than deprecated REST paths.
 
 ### Tool Execution Control
 
