@@ -14,6 +14,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
+- **📈 Polymarket Trading**: Connect your wallet and trade directly from the CLI using Polymarket APIs
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
 - While the agent is executing tasks, you can continue typing new requests.
 These messages are queued and the active plan is updated on the fly—no need
@@ -157,6 +158,24 @@ This mode is particularly useful for:
 - **Scripting**: Integrate AI assistance into shell scripts
 - **Terminal benchmarks**: Perfect for tools like Terminal Bench that need non-interactive execution
 - **Batch processing**: Process multiple prompts programmatically
+
+## Polymarket Trading
+
+Connect your wallet before issuing trading commands:
+
+```bash
+h1dr4 polymarket connect-wallet --private-key <hexKey>
+# optional flags:
+#   --signature-type 0|1|2  (0=EOA, 1=Magic Link, 2=MetaMask)
+#   --funder <proxyAddress> (needed for 1 or 2)
+```
+
+The key is stored locally at `~/.h1dr4/polymarket-wallet.json` so future commands and agent sessions can reuse the connection. After connecting, you can ask the assistant to fetch Polymarket markets, check positions, or place trades directly from the CLI.
+
+- Markets are retrieved using `closed=false` and sorted by volume so only currently tradeable markets are shown.
+- The agent can query any Gamma, Data, or CLOB endpoint by specifying filters in natural language, enabling flexible market discovery and analytics.
+- Wallet connection automatically creates an API key pair for L2 authentication, allowing the agent to place and cancel orders through the CLOB API.
+- Balance checks, open orders, and trade history use dedicated CLOB methods (e.g. `getBalanceAllowance`, `getOpenOrders`, `getTrades`) rather than deprecated REST paths.
 
 ### Tool Execution Control
 

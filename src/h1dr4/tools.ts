@@ -310,6 +310,92 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "polymarket",
+      description:
+        "Interact with Polymarket prediction markets and trading API. Operations: gamma_request, data_request, clob_request, get_balance, get_open_orders, get_trades, get_order_book, get_price, get_spread, get_last_trade_price, get_polls, place_order, cancel_order. Requires wallet connection via 'polymarket connect-wallet'.",
+      parameters: {
+        type: "object",
+        properties: {
+          operation: {
+            type: "string",
+            enum: [
+              "gamma_request",
+              "data_request",
+              "clob_request",
+              "get_balance",
+              "get_open_orders",
+              "get_trades",
+              "get_order_book",
+              "get_price",
+              "get_spread",
+              "get_last_trade_price",
+              "get_polls",
+              "place_order",
+              "cancel_order",
+            ],
+            description: "Operation to perform",
+          },
+          endpoint: {
+            type: "string",
+            description: "API endpoint path (e.g. '/markets')",
+          },
+          params: {
+            type: "object",
+            description: "Query parameters for the request",
+          },
+          method: {
+            type: "string",
+            enum: ["GET", "POST"],
+            description: "HTTP method for clob_request",
+          },
+          body: {
+            type: "object",
+            description: "Request body for clob_request",
+          },
+          assetType: {
+            type: "string",
+            description:
+              "Asset type for balance queries (COLLATERAL or CONDITIONAL)",
+          },
+          tokenId: {
+            type: "string",
+            description: "Token ID for trading or balance lookup",
+          },
+          market: {
+            type: "string",
+            description: "Market/condition ID for order or trade queries",
+          },
+          assetId: {
+            type: "string",
+            description: "Specific asset ID for order or trade queries",
+          },
+          side: {
+            type: "string",
+            enum: ["BUY", "SELL", "buy", "sell"],
+            description: "Order side or price lookup side",
+          },
+          maker: {
+            type: "string",
+            description: "Maker address filter for trades",
+          },
+          taker: {
+            type: "string",
+            description: "Taker address filter for trades",
+          },
+          price: { type: "number", description: "Price from 0 to 1" },
+          size: { type: "number", description: "Number of shares" },
+          orderId: {
+            type: "string",
+            description: "Order ID for cancellation",
+          },
+        },
+        required: ["operation"],
+      },
+    },
+  },
 ];
 
 // Morph Fast Apply tool (conditional)

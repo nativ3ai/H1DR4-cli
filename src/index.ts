@@ -14,6 +14,7 @@ import { createScheduleCommand } from "./commands/schedule";
 import { startAllTasks } from "./schedule/runner";
 import { createAlertCommand } from "./commands/alert";
 import { startAllAlerts } from "./alerts/runner";
+import { createPolymarketCommand } from "./commands/polymarket";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 import fs from "fs";
 import path from "path";
@@ -492,5 +493,6 @@ program.addCommand(createMCPCommand());
 program.addCommand(createRSSCommand());
 program.addCommand(createScheduleCommand());
 program.addCommand(createAlertCommand());
+program.addCommand(createPolymarketCommand());
 
 program.parse();
