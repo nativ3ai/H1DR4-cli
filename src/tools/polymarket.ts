@@ -50,6 +50,25 @@ export class PolymarketTool {
     return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   }
 
+  // Parse clobTokenIds which may come as JSON string, single string, or array
+  private parseTokenIds(clobTokenIds: any): string[] {
+    if (!clobTokenIds) return [];
+
+    if (typeof clobTokenIds === "string") {
+      try {
+        return JSON.parse(clobTokenIds);
+      } catch {
+        return [clobTokenIds];
+      }
+    }
+
+    if (Array.isArray(clobTokenIds)) {
+      return clobTokenIds;
+    }
+
+    return [];
+  }
+
   private async saveWallet(privateKey: string, creds: ApiKeyCreds) {
     await fs.promises.mkdir(path.dirname(this.walletPath), { recursive: true });
     await fs.promises.writeFile(
@@ -382,9 +401,22 @@ export class PolymarketTool {
     try {
       const tickSize = await this.clobClient.getTickSize(tokenId);
       const negRisk = await this.clobClient.getNegRisk(tokenId);
+
+      const orderParams = {
+        tokenID: tokenId.toString(),
+        price: Number(price),
+        size: Number(size),
+        side: side === "buy" ? Side.BUY : Side.SELL,
+      };
+
+      const marketParams = {
+        tickSize: Number(tickSize),
+        negRisk: Boolean(negRisk),
+      };
+
       const order = await this.clobClient.createAndPostOrder(
-        { tokenID: tokenId, price, size, side: side === "buy" ? Side.BUY : Side.SELL },
-        { tickSize, negRisk },
+        orderParams,
+        marketParams,
         OrderType.GTC
       );
       return {
@@ -439,7 +471,11 @@ export class PolymarketTool {
           taker: args.taker,
         });
       case "get_order_book":
-        return this.getOrderBook(args.tokenId);
+        const obIds = this.parseTokenIds(args.clobTokenIds ?? args.tokenId);
+        if (!obIds.length) {
+          return { success: false, error: "Token ID required" };
+        }
+        return this.getOrderBook(obIds[0]);
       case "get_price":
         return this.getPrice(args.tokenId, args.side);
       case "get_spread":
@@ -449,8 +485,12 @@ export class PolymarketTool {
       case "get_polls":
         return this.getPolls(args.params);
       case "place_order":
+        const orderIds = this.parseTokenIds(args.clobTokenIds ?? args.tokenId);
+        if (!orderIds.length) {
+          return { success: false, error: "Token ID required" };
+        }
         return this.placeOrder(
-          args.tokenId,
+          orderIds[0],
           args.price,
           args.size,
           args.side
