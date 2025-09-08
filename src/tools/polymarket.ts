@@ -61,15 +61,20 @@ export class PolymarketTool {
       this.clobClient = new (ClobClient as any)(...args);
 
       const creds = await this.clobClient.createOrDeriveApiKey();
-      if (!creds.key || !creds.secret || !creds.passphrase) {
+      if (!creds || !creds.key) {
         throw new Error("Could not create api key");
       }
+
+      console.log(`\u2705 API Key created: ${creds.key}`);
 
       // set credentials on the existing client without re-instantiating
       (this.clobClient as any).creds = creds;
       this.apiCreds = creds;
       await this.saveWallet(privateKey, creds);
-      return { success: true, output: `Connected wallet ${this.address}` };
+      return {
+        success: true,
+        output: `\u2705 Connected wallet ${this.address} with API key: ${creds.key}`,
+      };
     } catch (error: any) {
       return {
         success: false,
