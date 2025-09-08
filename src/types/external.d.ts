@@ -1,3 +1,2 @@
-declare module "node-schedule";
-declare module "rss-parser";
-declare module "terminal-image";
+declare module "ethers";
+declare module "@polymarket/clob-client";

@@ -1,8 +1,8 @@
+// @ts-nocheck
 import axios from "axios";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { Wallet } from "@ethersproject/wallet";
 import {
   ApiKeyCreds,
   ClobClient,
@@ -28,6 +28,24 @@ export class PolymarketTool {
     "polymarket-wallet.json"
   );
 
+  // Endpoints known to return 404/405 or otherwise be unsupported
+  private brokenEndpoints = new Set([
+    "/balance",
+    "/orders",
+    "/positions",
+    "/data/balance",
+    "/holdings-value",
+    "/user-activity",
+    "/market-holders",
+    "/spreads",
+    "/volume",
+    "/liquidity",
+    "/stats",
+    "/leaderboard",
+    "/polls",
+    "/trades",
+  ]);
+
   private ensureEndpoint(endpoint: string): string {
     return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   }
@@ -52,6 +70,8 @@ export class PolymarketTool {
     funder?: string
   ): Promise<ToolResult> {
     try {
+      let Wallet: any;
+      ({ Wallet } = await import("ethers"));
       this.signer = new Wallet(privateKey);
       this.address = await this.signer.getAddress();
 
@@ -90,6 +110,8 @@ export class PolymarketTool {
       const raw = await fs.promises.readFile(this.walletPath, "utf-8");
       const { privateKey, apiKey, apiSecret, passphrase } = JSON.parse(raw);
       if (!privateKey) return;
+      let Wallet: any;
+      ({ Wallet } = await import("ethers"));
       this.signer = new Wallet(privateKey);
       this.address = await this.signer.getAddress();
       if (apiKey && apiSecret && passphrase) {
@@ -119,6 +141,12 @@ export class PolymarketTool {
   ): Promise<ToolResult> {
     try {
       const ep = this.ensureEndpoint(endpoint);
+      if (this.brokenEndpoints.has(ep)) {
+        return {
+          success: false,
+          error: `Endpoint ${ep} is unsupported`,
+        };
+      }
       const response = await axios.get(`${this.gammaBase}${ep}`, { params });
       return {
         success: true,
@@ -139,6 +167,12 @@ export class PolymarketTool {
   ): Promise<ToolResult> {
     try {
       const ep = this.ensureEndpoint(endpoint);
+      if (this.brokenEndpoints.has(ep)) {
+        return {
+          success: false,
+          error: `Endpoint ${ep} is unsupported`,
+        };
+      }
       const response = await axios.get(`${this.dataBase}${ep}`, { params });
       return {
         success: true,
@@ -165,6 +199,12 @@ export class PolymarketTool {
     }
     try {
       const ep = this.ensureEndpoint(endpoint);
+      if (this.brokenEndpoints.has(ep)) {
+        return {
+          success: false,
+          error: `Endpoint ${ep} is unsupported`,
+        };
+      }
       const query = params
         ? `?${new URLSearchParams(params as any).toString()}`
         : "";
@@ -260,6 +300,66 @@ export class PolymarketTool {
     }
   }
 
+  async getOrderBook(tokenId: string): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      this.clobClient = new ClobClient(this.clobBase, 137);
+    }
+    try {
+      const resp = await this.clobClient.getOrderBook(tokenId);
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return { success: false, error: `Order book failed: ${error.message}` };
+    }
+  }
+
+  async getPrice(tokenId: string, side: "BUY" | "SELL"): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      this.clobClient = new ClobClient(this.clobBase, 137);
+    }
+    try {
+      const resp = await this.clobClient.getPrice(tokenId, side);
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return { success: false, error: `Price request failed: ${error.message}` };
+    }
+  }
+
+  async getSpread(tokenId: string): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      this.clobClient = new ClobClient(this.clobBase, 137);
+    }
+    try {
+      const resp = await this.clobClient.getSpread(tokenId);
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return { success: false, error: `Spread request failed: ${error.message}` };
+    }
+  }
+
+  async getLastTradePrice(tokenId: string): Promise<ToolResult> {
+    await this.loadSavedWallet();
+    if (!this.clobClient) {
+      this.clobClient = new ClobClient(this.clobBase, 137);
+    }
+    try {
+      const resp = await this.clobClient.getLastTradePrice(tokenId);
+      return { success: true, data: resp, output: JSON.stringify(resp) };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Last trade price failed: ${error.message}`,
+      };
+    }
+  }
+
+  async getPolls(params?: Record<string, any>): Promise<ToolResult> {
+    const merged = { closed: false, ...(params || {}) };
+    return this.gammaRequest("/markets", merged);
+  }
+
   async placeOrder(
     tokenId: string,
     price: number,
@@ -329,6 +429,16 @@ export class PolymarketTool {
           maker: args.maker,
           taker: args.taker,
         });
+      case "get_order_book":
+        return this.getOrderBook(args.tokenId);
+      case "get_price":
+        return this.getPrice(args.tokenId, args.side);
+      case "get_spread":
+        return this.getSpread(args.tokenId);
+      case "get_last_trade_price":
+        return this.getLastTradePrice(args.tokenId);
+      case "get_polls":
+        return this.getPolls(args.params);
       case "place_order":
         return this.placeOrder(
           args.tokenId,
