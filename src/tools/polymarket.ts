@@ -75,6 +75,11 @@ export class PolymarketTool {
       this.signer = new Wallet(privateKey);
       this.address = await this.signer.getAddress();
 
+      // Ethers v6 renamed _signTypedData to signTypedData; add alias for CLOB client
+      if (!this.signer._signTypedData && this.signer.signTypedData) {
+        this.signer._signTypedData = this.signer.signTypedData.bind(this.signer);
+      }
+
       const args: any[] = [this.clobBase, 137, this.signer];
       if (signatureType > 0 && funder) {
         args.push(undefined, signatureType, funder);
@@ -114,6 +119,9 @@ export class PolymarketTool {
       ({ Wallet } = await import("ethers"));
       this.signer = new Wallet(privateKey);
       this.address = await this.signer.getAddress();
+      if (!this.signer._signTypedData && this.signer.signTypedData) {
+        this.signer._signTypedData = this.signer.signTypedData.bind(this.signer);
+      }
       if (apiKey && apiSecret && passphrase) {
         const creds: ApiKeyCreds = {
           key: apiKey,
@@ -126,6 +134,7 @@ export class PolymarketTool {
           this.signer,
           creds
         );
+        (this.clobClient as any).creds = creds;
         this.apiCreds = creds;
       } else {
         this.clobClient = new ClobClient(this.clobBase, 137, this.signer);
