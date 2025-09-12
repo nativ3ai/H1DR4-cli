@@ -92,4 +92,11 @@ export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {
       },
     },
   },
+  openbb: {
+    name: "openbb",
+    transport: {
+      type: "sse",
+      url: "https://server.smithery.ai/@DidierRLopes/openbb-docs-mcp/sse",
+    },
+  },
 };

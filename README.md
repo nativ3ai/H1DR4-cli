@@ -14,6 +14,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
+- **📊 OpenBB Widgets**: Access tables and plots via the OpenBB docs MCP server
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
 - While the agent is executing tasks, you can continue typing new requests.
 These messages are queued and the active plan is updated on the fly—no need
@@ -427,6 +428,7 @@ Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own
 
 - **FRED economic data**: `h1dr4 mcp add fred` (set `FRED_API_KEY` for full access)
 - **RSS news feeds**: `h1dr4 mcp add rss` and manage feeds with `h1dr4 rss ...`
+- **OpenBB widgets docs**: `h1dr4 mcp add openbb` to access tooling for tables and plots
 
 ### RSS Feed Management
 
