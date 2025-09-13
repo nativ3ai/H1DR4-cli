@@ -94,7 +94,7 @@ export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {
   },
 };
 
-const openbbBaseUrl = "https://server.smithery.ai/@DidierRLopes/openbb-docs-mcp/mcp/sse";
+const openbbBaseUrl = "https://server.smithery.ai/@DidierRLopes/openbb-docs-mcp/mcp";
 const openbbApiKey = process.env.OPENBB_API_KEY;
 const openbbProfile = process.env.OPENBB_PROFILE;
 const openbbUrl = openbbApiKey

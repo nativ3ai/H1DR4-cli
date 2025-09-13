@@ -197,7 +197,9 @@ class SSEClientTransport extends EventEmitter implements Transport {
       const params = Object.fromEntries(url.searchParams.entries());
       const response = await axios.post(url.origin + url.pathname, message, {
         headers: {
+          'Accept': 'text/event-stream, application/json',
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
           ...(this.config.headers || {})
         },
         params
