@@ -127,7 +127,7 @@ export class SSETransport extends EventEmitter implements MCPTransport {
         // For Node.js environment, we'll use a simple HTTP-based approach
         // In a real implementation, you'd use a proper SSE library like 'eventsource'
         this.connected = true;
-        resolve(new SSEClientTransport(this.config.url!));
+        resolve(new SSEClientTransport(this.config));
       } catch (error) {
         reject(error);
       }
@@ -169,7 +169,7 @@ class HttpClientTransport extends EventEmitter implements Transport {
 
 // Custom SSE Transport implementation
 class SSEClientTransport extends EventEmitter implements Transport {
-  constructor(private url: string) {
+  constructor(private config: TransportConfig) {
     super();
   }
 
@@ -185,8 +185,24 @@ class SSEClientTransport extends EventEmitter implements Transport {
     // For bidirectional communication over SSE, we typically use HTTP POST
     // for sending messages and SSE for receiving
     try {
-      const response = await axios.post(this.url.replace('/sse', '/rpc'), message, {
-        headers: { 'Content-Type': 'application/json' }
+      if (!this.config.url) {
+        throw new Error('URL is required for SSE transport');
+      }
+      const url = new URL(this.config.url);
+      // Replace trailing /sse with /rpc while preserving query params
+      if (url.pathname.endsWith('/sse')) {
+        url.pathname = url.pathname.replace(/\/sse$/, '/rpc');
+      }
+      // Extract query parameters to ensure they're sent with the RPC request
+      const params = Object.fromEntries(url.searchParams.entries());
+      const response = await axios.post(url.origin + url.pathname, message, {
+        headers: {
+          'Accept': 'text/event-stream, application/json',
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          ...(this.config.headers || {})
+        },
+        params
       });
       return response.data;
     } catch (error) {

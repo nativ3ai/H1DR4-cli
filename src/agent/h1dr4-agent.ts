@@ -133,6 +133,14 @@ REAL-TIME INFORMATION:
  Prefer live_search for current events, social media mentions, or up-to-the-minute data instead of the reasoning tool.
  This capability is independent from the reasoning worker and does not require user confirmation.
 
+OPENBB FINANCIAL DATA AND PLOTTING:
+ - Use the OpenBB docs MCP server for widget specifications, tables, and charts.
+ - Available tools: widget-types_plotly-charts, widget-types_tradingview-charts, widget-types_highcharts, widget-types_aggrid-table-charts, widget-types_metric, json_specs_widgets_json_reference, building_widgets_on_openbb.
+ - Gather data using reasoning or market-data tools, then build a widget configuration JSON including widgetId, name, description, category, subCategory, type, endpoint, gridData, runButton, raw, and params with paramName, label, type, description, value, and show fields.
+ - Chart endpoints should return Plotly figure JSON via fig.to_json(); provide raw data arrays when the raw=true parameter is supplied.
+ - Supported parameter types: text, date, boolean, dropdown, and number.
+ - Example: create a Plotly figure, add traces, update layout, and return fig.to_json() for display.
+
  IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
 - ALWAYS use str_replace_editor to modify existing files, even for small changes
