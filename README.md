@@ -428,7 +428,7 @@ Set the `FMP_API_KEY` environment variable or supply `--api-key` to use your own
 
 - **FRED economic data**: `h1dr4 mcp add fred` (set `FRED_API_KEY` for full access)
 - **RSS news feeds**: `h1dr4 mcp add rss` and manage feeds with `h1dr4 rss ...`
-- **OpenBB widgets docs**: `h1dr4 mcp add openbb` to access tooling for tables and plots
+- **OpenBB widgets docs**: `h1dr4 mcp add openbb` (set `OPENBB_API_KEY` and optional `OPENBB_PROFILE` for access to widget tooling)
 
 ### RSS Feed Management
 
