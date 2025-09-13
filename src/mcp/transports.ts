@@ -193,11 +193,14 @@ class SSEClientTransport extends EventEmitter implements Transport {
       if (url.pathname.endsWith('/sse')) {
         url.pathname = url.pathname.replace(/\/sse$/, '/rpc');
       }
-      const response = await axios.post(url.toString(), message, {
+      // Extract query parameters to ensure they're sent with the RPC request
+      const params = Object.fromEntries(url.searchParams.entries());
+      const response = await axios.post(url.origin + url.pathname, message, {
         headers: {
           'Content-Type': 'application/json',
           ...(this.config.headers || {})
-        }
+        },
+        params
       });
       return response.data;
     } catch (error) {
