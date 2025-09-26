@@ -15,6 +15,7 @@ import {
   ConfirmationTool,
   SearchTool,
   OSINTTool,
+  GdeltTool,
   ReasoningWorker,
 } from "../tools";
 import { ToolResult } from "../types";
@@ -51,6 +52,7 @@ export class H1dr4Agent extends EventEmitter {
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
   private osint: OSINTTool;
+  private gdelt: GdeltTool;
   private reasoningWorker: ReasoningWorker;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
@@ -88,6 +90,7 @@ export class H1dr4Agent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
+    this.gdelt = new GdeltTool();
     this.reasoningWorker = new ReasoningWorker();
     this.tokenCounter = createTokenCounter(modelToUse);
 
@@ -118,6 +121,7 @@ You have access to these tools:
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
+- gdelt_query: Query the GDELT geopolitical datasets for conflict, risk, economic, or custom event analysis using modular endpoints
 - live_search: Search real-time web, news, and X posts using Grok's live search
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
@@ -132,6 +136,16 @@ REAL-TIME INFORMATION:
  Provide descriptive queries; mode defaults to auto and all sources are searched unless you specify otherwise.
  Prefer live_search for current events, social media mentions, or up-to-the-minute data instead of the reasoning tool.
  This capability is independent from the reasoning worker and does not require user confirmation.
+
+GDELT DATA PLAYBOOK:
+ - Use the gdelt_query tool for structured geopolitical datasets.
+ - Dataset selection: /gdelt (v1) covers 1979-2025 with daily refresh; /gdelt/v2 covers 2015-2025 with 15-minute refresh and better June 2025 coverage.
+ - Prefer v1 for long-term historical trends and v2 for real-time monitoring or when analyzing the June 14 - July 1 2025 outage window.
+ - Endpoints: connection_test, global_conflict_analysis, country_risk, bilateral_relations, high_impact_events, economic_events, custom_date_search, or provide a custom path.
+ - Global conflict metrics include monthly counts, average sentiment (-100 to +100), and Goldstein impact (-10 to +10).
+ - Country risk accepts ISO3 codes (USA, CHN, RUS, etc.); global/bilateral analyses accept optional month windows; custom date search uses YYYYMMDD ranges.
+ - Set threshold ≥8 for high impact events, tune limits for pagination, and keep date windows focused to optimize BigQuery costs.
+ - The API returns JSON with automatic warnings for the June 2025 gap—follow recommendations and consider cross-checking both datasets for critical work.
 
  IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
@@ -738,6 +752,15 @@ Current working directory: ${process.cwd()}`,
 
         case "osint_search":
           return await this.osint.search(args.query);
+
+        case "gdelt_query":
+          return await this.gdelt.query({
+            endpoint: args.endpoint,
+            datasetVersion: args.dataset_version,
+            pathOverride: args.path_override,
+            method: args.method,
+            parameters: args.parameters,
+          });
 
         case "live_search":
           const searchResponse = await this.h1dr4Client.search(
