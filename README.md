@@ -12,6 +12,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - **🔧 Automatic Tool Selection**: AI intelligently chooses the right tools for your requests
 - **🧠 Reasoning Engine**: Access a dedicated reasoning endpoint for complex questions
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
+- **🌐 GDELT Intelligence**: Correlate 852M+ geopolitical events via the `gdelt_query` tool across historical (v1) and real-time (v2) datasets
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
@@ -95,6 +96,13 @@ or throught
 ```bash
 export OSINT_TOKEN=your-h1dr4_osint-token
 ```
+
+**Optional: Override the GDELT base URL**
+```bash
+export GDELT_BASE_URL=https://your-proxy-or-direct-endpoint
+```
+
+The `gdelt_query` tool defaults to `https://my-search-proxy.ew.r.appspot.com` and exposes both `/gdelt` (v1, 1979-2025 daily refresh) and `/gdelt/v2` (2015-2025, 15-minute refresh) datasets. Prefer v2 for real-time analysis and when working inside the June 14 - July 1 2025 outage window, otherwise use v1 for longer historical sweeps. Each endpoint returns JSON including automatic data quality warnings.
 
 ### Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)
 *Note*: For the best coding experience Morph is recomended

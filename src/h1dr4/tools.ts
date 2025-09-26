@@ -261,6 +261,55 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
   {
     type: "function",
     function: {
+      name: "gdelt_query",
+      description:
+        "Query the GDELT geopolitical datasets for conflict, risk, economic, or custom event intelligence",
+      parameters: {
+        type: "object",
+        properties: {
+          endpoint: {
+            type: "string",
+            enum: [
+              "connection_test",
+              "global_conflict_analysis",
+              "country_risk",
+              "bilateral_relations",
+              "high_impact_events",
+              "economic_events",
+              "custom_date_search",
+              "custom",
+            ],
+            description: "Which GDELT analytical endpoint to call",
+          },
+          dataset_version: {
+            type: "string",
+            enum: ["v1", "v2"],
+            description:
+              "Dataset selection: v1 (1979-2025 daily) or v2 (2015-2025, 15-minute refresh)",
+          },
+          path_override: {
+            type: "string",
+            description:
+              "Optional dataset-relative path override when endpoint is set to custom",
+          },
+          method: {
+            type: "string",
+            enum: ["GET", "POST"],
+            description: "HTTP method (defaults to GET)",
+          },
+          parameters: {
+            type: "object",
+            description:
+              "Query string parameters (for GET) or JSON body (for POST), such as months, start_year, country, limit, threshold, date_start, date_end",
+          },
+        },
+        required: ["endpoint"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "live_search",
       description:
         "Search real-time web, news, and X posts using Grok's live search",
