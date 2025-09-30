@@ -162,6 +162,69 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
   {
     type: "function",
     function: {
+      name: "gdelt_query",
+      description:
+        "Query the GDELT proxy for conflict trends, country risk, bilateral relations, economic or high-impact events, BBVA-style bilateral conflict coverage, or keyword context data (supports /gdelt and /gdelt/v2 with daily granularity triggers)",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: [
+              "test",
+              "conflict",
+              "country",
+              "bilateral",
+              "high-impact",
+              "economic",
+              "search",
+              "bilateral_conflict_coverage",
+              "context",
+            ],
+            description:
+              "Which GDELT action to run. Use 'bilateral_conflict_coverage' for BBVA methodology or 'context' for keyword-filtered events.",
+          },
+          endpoint_version: {
+            type: "string",
+            enum: ["v1", "v2"],
+            description:
+              "Optional override for dataset version. Defaults to /gdelt for most actions and /gdelt/v2 for daily or BBVA/context requests.",
+          },
+          query_parameters: {
+            type: "object",
+            description:
+              "Additional query parameters (e.g. {start_year: 2023, months: 6, date_start: '20250801', date_end: '20250831', granularity: 'daily', country: 'USA'}). Arrays will be sent as repeated parameters.",
+            additionalProperties: {
+              anyOf: [
+                { type: "string" },
+                { type: "number" },
+                { type: "boolean" },
+                {
+                  type: "array",
+                  items: {
+                    anyOf: [
+                      { type: "string" },
+                      { type: "number" },
+                      { type: "boolean" },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          timeout_ms: {
+            type: "number",
+            description:
+              "Optional request timeout override in milliseconds (default 60000).",
+          },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "create_todo_list",
       description: "Create a new todo list for planning and tracking tasks",
       parameters: {

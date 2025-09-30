@@ -16,6 +16,7 @@ import {
   SearchTool,
   OSINTTool,
   ReasoningWorker,
+  GdeltTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -51,6 +52,7 @@ export class H1dr4Agent extends EventEmitter {
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
   private osint: OSINTTool;
+  private gdelt: GdeltTool;
   private reasoningWorker: ReasoningWorker;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
@@ -88,6 +90,7 @@ export class H1dr4Agent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.osint = new OSINTTool();
+    this.gdelt = new GdeltTool();
     this.reasoningWorker = new ReasoningWorker();
     this.tokenCounter = createTokenCounter(modelToUse);
 
@@ -118,8 +121,20 @@ You have access to these tools:
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
+- gdelt_query: Query the GDELT proxy for conflict levels, country risk, bilateral relations, high-impact or economic events, BBVA-style bilateral conflict coverage, custom date searches, and keyword context retrieval (supports /gdelt and /gdelt/v2 with daily granularity options)
 - live_search: Search real-time web, news, and X posts using Grok's live search
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
+
+GDELT TOOL QUICK REFERENCE:
+- test → Check connectivity (/gdelt?action=test)
+- conflict → Global conflict intensity; supports start_year, months, and daily granularity triggers
+- country → Country risk (country code required, optional start_year, limit, daily granularity)
+- bilateral → Bilateral relations (country1, country2, months or date_start/date_end with daily granularity)
+- high-impact → Filter by Goldstein threshold, limit, start_year
+- economic → Economic cooperation/conflict data with start_year, limit, and daily options
+- search → Custom date range search (date_start, date_end, limit)
+- bilateral_conflict_coverage → BBVA directional conflict coverage (actor1_code, actor2_code, date_start, date_end, optional cameos, include_total)
+- context → Keyword-filtered context retrieval (date_start, date_end, optional keywords, limit, include_insights)
 
 REASONING WORKER BEST PRACTICES:
  - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, or complex synthesis of multiple news sources
@@ -738,6 +753,15 @@ Current working directory: ${process.cwd()}`,
 
         case "osint_search":
           return await this.osint.search(args.query);
+
+        case "gdelt_query":
+          return await this.gdelt.query({
+            action: args.action,
+            endpointVersion: args.endpoint_version,
+            params:
+              args.query_parameters ?? args.params ?? args.parameters ?? undefined,
+            timeoutMs: args.timeout_ms,
+          });
 
         case "live_search":
           const searchResponse = await this.h1dr4Client.search(
