@@ -50,8 +50,8 @@ export class H1dr4Agent extends EventEmitter {
   private todoTool: TodoTool;
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
-  private osint: OSINTTool;
-  private reasoningWorker: ReasoningWorker;
+  private osint: OSINTTool | null;
+  private reasoningWorker: ReasoningWorker | null;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -63,7 +63,8 @@ export class H1dr4Agent extends EventEmitter {
     apiKey: string,
     baseURL?: string,
     model?: string,
-    maxToolRounds?: number
+    maxToolRounds?: number,
+    options?: { enableOsint?: boolean; enableReasoning?: boolean }
   ) {
     super();
     const manager = getSettingsManager();
@@ -86,9 +87,11 @@ export class H1dr4Agent extends EventEmitter {
       this.messages.push({ role: 'assistant', content: output });
     });
     this.confirmationTool = new ConfirmationTool();
+    const enableOsint = options?.enableOsint !== false;
+    const enableReasoning = options?.enableReasoning !== false;
     this.search = new SearchTool();
-    this.osint = new OSINTTool();
-    this.reasoningWorker = new ReasoningWorker();
+    this.osint = enableOsint ? new OSINTTool() : null;
+    this.reasoningWorker = enableReasoning ? new ReasoningWorker() : null;
     this.tokenCounter = createTokenCounter(modelToUse);
 
     // Initialize MCP servers if configured
@@ -715,6 +718,7 @@ Current working directory: ${process.cwd()}`,
           });
 
         case "osint_search":
+          if (!this.osint) throw new Error('OSINT disabled');
           return await this.osint.search(args.query);
 
         case "live_search":
@@ -760,6 +764,7 @@ Current working directory: ${process.cwd()}`,
           }
 
           // Wait for reasoning result before responding
+          if (!this.reasoningWorker) throw new Error('Reasoning disabled');
           const reasoningResult = await this.reasoningWorker.analyze(args.prompt);
 
           const entry: ChatEntry = {

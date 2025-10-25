@@ -43,7 +43,26 @@ npm run build
 npm link
 ```
 
-## Setup
+### Running the Web API
+
+The repository includes a lightweight Express server exposing the agent over HTTP. To start it locally:
+
+```bash
+npm run dev:server
+```
+
+For production builds:
+
+```bash
+npm run build:server && npm run start:server
+```
+
+This server provides a `/chat` endpoint that forwards requests to the H1DR4 agent. Requests must include either:
+
+- `x-wallet-address` header referencing a Base chain address holding or staking enough H1DR4 tokens, or
+- `x-grok-key` header with a personal Grok API key (bypasses token gating).
+
+The server uses the same tools as the CLI, allowing mobile or web clients to interact with H1DR4.
 
 ## Setup
 
@@ -54,7 +73,7 @@ You will need **a Grok API Key** (required) and optionally an **OSINT Access Tok
 There are **two ways** to get a Grok API Key:
 
 1. **Use your own** → [X.AI](https://x.ai) lets you create your own Grok API token and set your own usage limits.  
-2. **Use [H1DR4](h1dr4.dev)** → If you **hold ≥500k $H1DR4** or **stake ≥100k $H1DR4**, you can claim both:  
+2. **Use [H1DR4](https://h1dr4.dev)** → If you **hold ≥500k $H1DR4** or **stake ≥100k $H1DR4**, you can claim both:
    - A **rate-limited Grok API Key**  
    - An **OSINT Access Token**  
 
@@ -84,7 +103,7 @@ h1dr4 --api-key your_api_key_here
 *Note*: The CLI will work with just the Grok API Key, but adding the OSINT Access Token unlocks additional features and improves the overall experience.
 
 -> get one either at:
-[Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
+[Telegram](https://t.me/osintbotbot) -> simply click: menu -> api
 
 or throught 
 
