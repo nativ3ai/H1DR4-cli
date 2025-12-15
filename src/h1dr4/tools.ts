@@ -294,6 +294,45 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
   {
     type: "function",
     function: {
+      name: "run_shannon",
+      description:
+        "Run the Shannon autonomous pentester via Docker. Requires Anthropic credentials and local Docker access.",
+      parameters: {
+        type: "object",
+        properties: {
+          target_url: {
+            type: "string",
+            description: "Target URL of the application to test",
+          },
+          repo_path: {
+            type: "string",
+            description: "Local path to mount as /app/repos/target (defaults to current working directory)",
+          },
+          config_path: {
+            type: "string",
+            description: "Optional path to a Shannon config file to mount at /app/configs",
+          },
+          image: {
+            type: "string",
+            description: "Docker image to use for Shannon (default: shannon:latest)",
+          },
+          disable_host_network: {
+            type: "boolean",
+            description: "Set true to avoid using --network host",
+          },
+          additional_args: {
+            type: "array",
+            items: { type: "string" },
+            description: "Additional CLI arguments to pass to Shannon",
+          },
+        },
+        required: ["target_url"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "reason",
       description:
         "Use a dedicated reasoning model for predictions, cross-referencing news, running simulations (e.g., Monte Carlo), and other complex questions",

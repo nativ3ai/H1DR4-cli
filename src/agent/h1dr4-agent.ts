@@ -16,6 +16,7 @@ import {
   SearchTool,
   OSINTTool,
   ReasoningWorker,
+  ShannonTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -52,6 +53,7 @@ export class H1dr4Agent extends EventEmitter {
   private search: SearchTool;
   private osint: OSINTTool;
   private reasoningWorker: ReasoningWorker;
+  private shannon: ShannonTool;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
   private tokenCounter: TokenCounter;
@@ -89,6 +91,7 @@ export class H1dr4Agent extends EventEmitter {
     this.search = new SearchTool();
     this.osint = new OSINTTool();
     this.reasoningWorker = new ReasoningWorker();
+    this.shannon = new ShannonTool();
     this.tokenCounter = createTokenCounter(modelToUse);
 
     // Initialize MCP servers if configured
@@ -120,6 +123,7 @@ You have access to these tools:
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
 - live_search: Search real-time web, news, and X posts using Grok's live search
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
+- run_shannon: Launch the Shannon autonomous pentest via Docker (requires local Docker and Anthropic credentials)
 
 REASONING WORKER BEST PRACTICES:
  - Best for: Market analysis, geopolitical intelligence, predictive analysis, strategic planning, Monte Carlo simulations, or complex synthesis of multiple news sources
@@ -728,6 +732,16 @@ Current working directory: ${process.cwd()}`,
               searchResponse.choices[0]?.message?.content ||
               "No results returned",
           };
+
+        case "run_shannon":
+          return await this.shannon.runScan({
+            targetUrl: args.target_url,
+            repoPath: args.repo_path,
+            configPath: args.config_path,
+            image: args.image,
+            disableHostNetwork: args.disable_host_network,
+            additionalArgs: args.additional_args,
+          });
 
         case "reason":
           const confirmation = await this.confirmationTool.requestConfirmation({

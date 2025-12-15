@@ -13,6 +13,7 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 - **🧠 Reasoning Engine**: Access a dedicated reasoning endpoint for complex questions
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
+- **🔐 Shannon Integration**: Launch Shannon autonomous pentests directly from the CLI via Docker
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
 - While the agent is executing tasks, you can continue typing new requests.
@@ -362,6 +363,25 @@ h1dr4 -p "convert this class to TypeScript and add proper type annotations"
 ```
 
 The AI will automatically choose between `edit_file` (Morph) for complex changes or `str_replace_editor` for simple replacements.
+
+## Shannon Integration
+
+Use the `run_shannon` tool to launch [Shannon](https://github.com/KeygraphHQ/shannon) autonomous pentests without leaving the H1DR4 CLI.
+
+**Prerequisites**
+
+- Docker available on your machine
+- A Shannon image (defaults to `shannon:latest`; override with the `image` parameter)
+- `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` set in your environment (optionally `CLAUDE_CODE_MAX_OUTPUT_TOKENS`)
+- Optional Shannon config file for authenticated runs
+
+**Usage**
+
+The tool mounts `repo_path` (defaults to the current working directory) to `/app/repos/target`, mounts the config file directory to `/app/configs`, and uses `--network host` unless you set `disable_host_network`.
+
+```bash
+h1dr4 --prompt "run run_shannon on http://host.docker.internal:3000 with config ./configs/example-config.yaml"
+```
 
 ## MCP Tools
 
