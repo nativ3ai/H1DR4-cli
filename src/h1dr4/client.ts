@@ -284,9 +284,10 @@ export class H1dr4Client {
       requestOptions?.max_tokens !== undefined
         ? requestOptions.max_tokens
         : 4000;
+    const preparedMessages = this.prepareOllamaMessages(messages);
     const payload: any = {
       model: model || this.currentModel,
-      messages,
+      messages: preparedMessages,
       stream: false,
       tools: tools || [],
       options: {
@@ -331,9 +332,10 @@ export class H1dr4Client {
       requestOptions?.max_tokens !== undefined
         ? requestOptions.max_tokens
         : 4000;
+    const preparedMessages = this.prepareOllamaMessages(messages);
     const payload: any = {
       model: model || this.currentModel,
-      messages,
+      messages: preparedMessages,
       stream: true,
       tools: tools || [],
       options: {
@@ -395,5 +397,35 @@ export class H1dr4Client {
         };
       }
     }
+  }
+
+  private prepareOllamaMessages(messages: H1dr4Message[]): any[] {
+    return messages.map((message: any) => {
+      if (!message.tool_calls) {
+        return message;
+      }
+      const toolCalls = message.tool_calls.map((call: any) => {
+        const args = call.function?.arguments ?? call.arguments ?? {};
+        let parsedArgs = args;
+        if (typeof args === "string") {
+          try {
+            parsedArgs = JSON.parse(args);
+          } catch {
+            parsedArgs = {};
+          }
+        }
+        return {
+          type: "function",
+          function: {
+            name: call.function?.name || call.name,
+            arguments: parsedArgs ?? {},
+          },
+        };
+      });
+      return {
+        ...message,
+        tool_calls: toolCalls,
+      };
+    });
   }
 }
