@@ -87,7 +87,7 @@ export class H1dr4Agent extends EventEmitter {
       provider === "ollama"
         ? model ||
           process.env.H1DR4_MODEL ||
-          "huihui_ai/qwen2.5-coder-abliterate:7b"
+          "closex/neuraldaredevil-8b-abliterated:Q6_K"
         : model || savedModel || "grok-4-latest";
     this.maxToolRounds = maxToolRounds || (provider === "ollama" ? 8 : 400);
     this.h1dr4Client = new H1dr4Client(apiKey, modelToUse, baseURL);

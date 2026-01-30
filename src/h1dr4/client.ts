@@ -81,7 +81,7 @@ export class H1dr4Client {
 
     if (this.provider === "ollama") {
       this.currentModel =
-        process.env.H1DR4_MODEL || "huihui_ai/qwen2.5-coder-abliterate:7b";
+        process.env.H1DR4_MODEL || "closex/neuraldaredevil-8b-abliterated:Q6_K";
     }
 
     if (this.provider === "grok") {
