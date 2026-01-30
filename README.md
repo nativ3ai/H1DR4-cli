@@ -6,14 +6,16 @@ A conversational AI CLI tool powered by H1DR4 with intelligent text editor capab
 
 ## Features
 
-- **🤖 Conversational AI**: Natural language interface powered by H1DR4
+- **🤖 Conversational AI**: Natural language interface powered by H1DR4 or local Ollama models
 - **📝 Smart File Operations**: AI automatically uses tools to view, create, and edit files
 - **⚡ Bash Integration**: Execute shell commands through natural conversation
 - **🔧 Automatic Tool Selection**: AI intelligently chooses the right tools for your requests
+- **🌐 Local Live Search**: DuckDuckGo traversal + page scraping with citations (no paid APIs)
 - **🧠 Reasoning Engine**: Access a dedicated reasoning endpoint for complex questions
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
+- **🛡️ Shannon Integration**: Run autonomous pentesting workflows via the Shannon CLI
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
 - While the agent is executing tasks, you can continue typing new requests.
 These messages are queued and the active plan is updated on the fly—no need
@@ -24,7 +26,8 @@ to cancel the current run.
 
 ### Prerequisites
 - Node.js 16+
-- Grok API key from X.AI
+- **For local mode:** Ollama installed (https://ollama.com)
+- **For Grok mode:** Grok API key from X.AI
 - (Optional, Recommended) Morph API key for Fast Apply editing
 
 ### Global Installation (Recommended)
@@ -45,11 +48,9 @@ npm link
 
 ## Setup
 
-## Setup
+### 1. Get your credentials (Grok mode)
 
-### 1. Get your credentials
-
-You will need **a Grok API Key** (required) and optionally an **OSINT Access Token** (recommended for best experience).  
+You will need **a Grok API Key** (required for Grok mode) and optionally an **OSINT Access Token** (recommended for best experience).  
 
 There are **two ways** to get a Grok API Key:
 
@@ -128,6 +129,51 @@ Add to `~/.h1dr4/user-settings.json`:
 }
 ```
 
+### 2. Local Ollama mode (no paid API keys)
+
+Install Ollama and pull one of the supported models:
+
+```bash
+ollama pull huihui_ai/qwen2.5-coder-abliterate:7b
+```
+
+Run the CLI in local mode:
+
+```bash
+export H1DR4_PROVIDER=ollama
+export OLLAMA_BASE_URL=http://localhost:11434
+export H1DR4_MODEL=huihui_ai/qwen2.5-coder-abliterate:7b
+h1dr4
+```
+
+Supported Ollama models (user-selectable):
+- huihui_ai/deepseek-r1-abliterated:8b-llama-distill
+- mannix/smallthinker-abliterated:latest
+- local-agent:latest
+- huihui_ai/qwen2.5-coder-abliterate:7b (default)
+
+Example prompts:
+- "Search latest news about X and summarize with citations"
+- "Plot token price series from CSV"
+
+### 3. Shannon integration (autonomous pentesting)
+
+Clone and set up Shannon:
+
+```bash
+git clone https://github.com/KeygraphHQ/shannon.git
+cd shannon
+./shannon start URL=https://your-app.com REPO=/path/to/your/repo
+```
+
+Then, from H1DR4 CLI, ask the assistant to run Shannon workflows:
+
+```
+"Run Shannon start URL=https://your-app.com REPO=/path/to/your/repo"
+"Show Shannon logs"
+"Query Shannon workflow ID=shannon-1234567890"
+```
+
 ## Usage
 
 ### Interactive Mode
@@ -160,7 +206,7 @@ This mode is particularly useful for:
 
 ### Tool Execution Control
 
-By default, H1DR4 CLI allows up to 400 tool execution rounds to handle complex multi-step tasks. You can control this behavior:
+By default, H1DR4 CLI allows up to 8 tool execution rounds for Ollama and 400 for other providers. You can control this behavior:
 
 ```bash
 # Limit tool rounds for faster execution on simple tasks
@@ -168,6 +214,11 @@ h1dr4 --max-tool-rounds 10 --prompt "show me the current directory"
 
 # Increase limit for very complex tasks (use with caution)
 h1dr4 --max-tool-rounds 1000 --prompt "comprehensive code refactoring"
+
+h1dr4 --max-tool-rounds 20  # Interactive mode
+
+# Or use environment variable
+export MAX_TOOL_ITERS=12
 
 # Works with all modes
 h1dr4 --max-tool-rounds 20  # Interactive mode
@@ -185,10 +236,13 @@ You can specify which AI model to use with the `--model` parameter or `H1DR4_MOD
 
 **Method 1: Command Line Flag**
 ```bash
-# Use H1DR4 models
+# Use H1DR4 models (Grok)
 h1dr4 --model grok-4-latest
 h1dr4 --model grok-3-latest
 h1dr4 --model grok-3-fast
+
+# Use local Ollama models
+h1dr4 --model huihui_ai/qwen2.5-coder-abliterate:7b --base-url http://localhost:11434
 
 # Use other models (with appropriate API endpoint)
 h1dr4 --model gemini-2.5-pro --base-url https://api-endpoint.com/v1
