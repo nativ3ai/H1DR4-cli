@@ -230,6 +230,7 @@ Be helpful, direct, and efficient. Always explain what you're doing and show the
 IMPORTANT RESPONSE GUIDELINES:
 - If a user request can be fulfilled by a tool, call the tool immediately.
 - Do NOT explain the tool call; execute it and respond with results.
+- Never fabricate tool outputs. If a tool is required and cannot be called, say so.
 - After using tools, do NOT respond with pleasantries like "Thanks for..." or "Great!"
 - Only provide necessary explanations or next steps if relevant to the task
 - Keep responses concise and focused on the actual work being done
@@ -1072,7 +1073,7 @@ You can call tools for web search and charting.`,
       {
         role: "system",
         content:
-          "You are a tool router. Decide if a tool should be called. " +
+          "You are a tool router. If a tool can answer the request, you MUST call it. " +
           "Return ONLY JSON: {\"name\": <toolName>, \"arguments\": {..}} " +
           "or {\"name\": null} if no tool is needed. Do not include code fences.",
       },
@@ -1084,17 +1085,26 @@ You can call tools for web search and charting.`,
 
     const response = await this.h1dr4Client.chat(
       selectionPrompt as any,
-      [],
+      tools,
       undefined,
-      undefined
+      undefined,
+      {
+        temperature: 0,
+        max_tokens: 256,
+        tool_choice: "auto",
+      }
     );
     const messageContent = response.choices[0]?.message?.content || "";
-    const toolCalls =
-      response.choices[0]?.message?.tool_calls ||
-      this.extractToolCallsFromContent(messageContent);
+    const toolCalls = response.choices[0]?.message?.tool_calls;
+    const fallbackCalls =
+      toolCalls?.length ? [] : this.extractToolCallsFromContent(messageContent);
 
     if (toolCalls && toolCalls.length > 0) {
       return toolCalls[0];
+    }
+
+    if (fallbackCalls.length > 0) {
+      return fallbackCalls[0];
     }
 
     return null;

@@ -50,6 +50,12 @@ export interface H1dr4Response {
   }>;
 }
 
+export interface H1dr4RequestOptions {
+  temperature?: number;
+  max_tokens?: number;
+  tool_choice?: "auto" | "required" | { type: "function"; function: { name: string } };
+}
+
 type ProviderType = "grok" | "ollama";
 
 export class H1dr4Client {
@@ -106,11 +112,12 @@ export class H1dr4Client {
     messages: H1dr4Message[],
     tools?: H1dr4Tool[],
     model?: string,
-    searchOptions?: SearchOptions
+    searchOptions?: SearchOptions,
+    requestOptions?: H1dr4RequestOptions
   ): Promise<H1dr4Response> {
     try {
       if (this.provider === "ollama") {
-        return await this.chatOllama(messages, tools, model);
+        return await this.chatOllama(messages, tools, model, requestOptions);
       }
 
       const requestPayload: any = {
@@ -121,6 +128,16 @@ export class H1dr4Client {
         temperature: 0.7,
         max_tokens: 4000,
       };
+
+      if (requestOptions?.temperature !== undefined) {
+        requestPayload.temperature = requestOptions.temperature;
+      }
+      if (requestOptions?.max_tokens !== undefined) {
+        requestPayload.max_tokens = requestOptions.max_tokens;
+      }
+      if (requestOptions?.tool_choice !== undefined) {
+        requestPayload.tool_choice = requestOptions.tool_choice;
+      }
 
       // Add search parameters if specified
       if (searchOptions?.search_parameters) {
@@ -141,11 +158,12 @@ export class H1dr4Client {
     messages: H1dr4Message[],
     tools?: H1dr4Tool[],
     model?: string,
-    searchOptions?: SearchOptions
+    searchOptions?: SearchOptions,
+    requestOptions?: H1dr4RequestOptions
   ): AsyncGenerator<any, void, unknown> {
     try {
       if (this.provider === "ollama") {
-        yield* this.chatStreamOllama(messages, tools, model);
+        yield* this.chatStreamOllama(messages, tools, model, requestOptions);
         return;
       }
 
@@ -158,6 +176,16 @@ export class H1dr4Client {
         max_tokens: 4000,
         stream: true,
       };
+
+      if (requestOptions?.temperature !== undefined) {
+        requestPayload.temperature = requestOptions.temperature;
+      }
+      if (requestOptions?.max_tokens !== undefined) {
+        requestPayload.max_tokens = requestOptions.max_tokens;
+      }
+      if (requestOptions?.tool_choice !== undefined) {
+        requestPayload.tool_choice = requestOptions.tool_choice;
+      }
 
       // Add search parameters if specified
       if (searchOptions?.search_parameters) {
@@ -249,16 +277,24 @@ export class H1dr4Client {
   private async chatOllama(
     messages: H1dr4Message[],
     tools?: H1dr4Tool[],
-    model?: string
+    model?: string,
+    requestOptions?: H1dr4RequestOptions
   ): Promise<H1dr4Response> {
+    const numPredict =
+      requestOptions?.max_tokens !== undefined
+        ? requestOptions.max_tokens
+        : 4000;
     const payload: any = {
       model: model || this.currentModel,
       messages,
       stream: false,
       tools: tools || [],
       options: {
-        temperature: 0.7,
-        num_predict: 4000,
+        temperature:
+          requestOptions?.temperature !== undefined
+            ? requestOptions.temperature
+            : 0.7,
+        num_predict: numPredict,
       },
     };
 
@@ -288,16 +324,24 @@ export class H1dr4Client {
   private async *chatStreamOllama(
     messages: H1dr4Message[],
     tools?: H1dr4Tool[],
-    model?: string
+    model?: string,
+    requestOptions?: H1dr4RequestOptions
   ): AsyncGenerator<any, void, unknown> {
+    const numPredict =
+      requestOptions?.max_tokens !== undefined
+        ? requestOptions.max_tokens
+        : 4000;
     const payload: any = {
       model: model || this.currentModel,
       messages,
       stream: true,
       tools: tools || [],
       options: {
-        temperature: 0.7,
-        num_predict: 4000,
+        temperature:
+          requestOptions?.temperature !== undefined
+            ? requestOptions.temperature
+            : 0.7,
+        num_predict: numPredict,
       },
     };
 
