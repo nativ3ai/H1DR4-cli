@@ -223,6 +223,8 @@ If a user rejects an operation, the tool will return an error and you should not
 Be helpful, direct, and efficient. Always explain what you're doing and show the results.
 
 IMPORTANT RESPONSE GUIDELINES:
+- If a user request can be fulfilled by a tool, call the tool immediately.
+- Do NOT explain the tool call; execute it and respond with results.
 - After using tools, do NOT respond with pleasantries like "Thanks for..." or "Great!"
 - Only provide necessary explanations or next steps if relevant to the task
 - Keep responses concise and focused on the actual work being done
@@ -277,6 +279,45 @@ You can call tools for web search and charting.`,
 
     try {
       const tools = await getAllH1dr4Tools();
+      const routedToolCall = this.routeDirectToolCall(message);
+      if (routedToolCall) {
+        const assistantEntry: ChatEntry = {
+          type: "assistant",
+          content: "",
+          timestamp: new Date(),
+          toolCalls: [routedToolCall],
+        };
+        this.chatHistory.push(assistantEntry);
+        newEntries.push(assistantEntry);
+        this.messages.push({
+          role: "assistant",
+          content: "",
+          tool_calls: [routedToolCall],
+        } as any);
+
+        const toolCallEntry: ChatEntry = {
+          type: "tool_call",
+          content: "Executing...",
+          timestamp: new Date(),
+          toolCall: routedToolCall,
+        };
+        this.chatHistory.push(toolCallEntry);
+        newEntries.push(toolCallEntry);
+
+        const result = await this.executeTool(routedToolCall);
+        const updatedEntry: ChatEntry = {
+          ...toolCallEntry,
+          type: "tool_result",
+          content: result.success
+            ? result.output || "Success"
+            : result.error || "Error occurred",
+          toolResult: result,
+        };
+        this.chatHistory.push(updatedEntry);
+        newEntries.push(updatedEntry);
+        this.appendToolResultMessage(routedToolCall, result);
+      }
+
       let currentResponse = await this.h1dr4Client.chat(
         this.messages,
         tools,
@@ -486,6 +527,44 @@ You can call tools for web search and charting.`,
     let totalOutputTokens = 0;
 
     try {
+      const routedToolCall = this.routeDirectToolCall(message);
+      if (routedToolCall) {
+        const assistantEntry: ChatEntry = {
+          type: "assistant",
+          content: "",
+          timestamp: new Date(),
+          toolCalls: [routedToolCall],
+        };
+        this.chatHistory.push(assistantEntry);
+        this.messages.push({
+          role: "assistant",
+          content: "",
+          tool_calls: [routedToolCall],
+        } as any);
+        yield {
+          type: "tool_calls",
+          toolCalls: [routedToolCall],
+        };
+
+        const result = await this.executeTool(routedToolCall);
+        const toolResultEntry: ChatEntry = {
+          type: "tool_result",
+          content: result.success
+            ? result.output || "Success"
+            : result.error || "Error occurred",
+          timestamp: new Date(),
+          toolCall: routedToolCall,
+          toolResult: result,
+        };
+        this.chatHistory.push(toolResultEntry);
+        yield {
+          type: "tool_result",
+          toolCall: routedToolCall,
+          toolResult: result,
+        };
+        this.appendToolResultMessage(routedToolCall, result);
+      }
+
       // Agent loop - continue until no more tool calls or max rounds reached
       while (toolRounds < maxToolRounds) {
         // Check if operation was cancelled
@@ -957,6 +1036,46 @@ You can call tools for web search and charting.`,
     } catch {
       return [];
     }
+  }
+
+  private routeDirectToolCall(message: string): H1dr4ToolCall | null {
+    const trimmed = message.trim();
+    const lower = trimmed.toLowerCase();
+
+    if (
+      /what(?:'s| is) the time|current time|time is it/.test(lower)
+    ) {
+      return this.buildToolCall("bash", { command: "date" });
+    }
+
+    if (/latest news|news headlines|news update|search latest news/.test(lower)) {
+      return this.buildToolCall("live_search", { query: "latest news" });
+    }
+
+    if (lower.startsWith("search ") || lower.startsWith("news ")) {
+      const query = trimmed.replace(/^(search|news)\s+/i, "").trim();
+      if (query) {
+        return this.buildToolCall("live_search", { query });
+      }
+    }
+
+    if (lower.startsWith("osint") || lower.includes("osint ")) {
+      const query = trimmed.replace(/^osint\s*/i, "").trim() || trimmed;
+      return this.buildToolCall("osint_search", { query });
+    }
+
+    return null;
+  }
+
+  private buildToolCall(name: string, args: Record<string, any>): H1dr4ToolCall {
+    return {
+      id: `direct-${name}-${Date.now()}`,
+      type: "function",
+      function: {
+        name,
+        arguments: JSON.stringify(args ?? {}),
+      },
+    };
   }
 
   private appendToolResultMessage(
