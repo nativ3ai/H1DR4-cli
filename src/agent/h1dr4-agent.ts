@@ -1056,6 +1056,70 @@ You can call tools for web search and charting.`,
     message: string,
     tools: H1dr4Tool[]
   ): Promise<H1dr4ToolCall | null> {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      return null;
+    }
+
+    const lowerMessage = trimmedMessage.toLowerCase();
+    const wordCount = trimmedMessage.split(/\s+/).filter(Boolean).length;
+    const toolKeywords = [
+      "search",
+      "find",
+      "lookup",
+      "web",
+      "online",
+      "news",
+      "latest",
+      "today",
+      "headline",
+      "current events",
+      "breaking",
+      "browse",
+      "fetch",
+      "open",
+      "file",
+      "directory",
+      "read",
+      "edit",
+      "update",
+      "create",
+      "run",
+      "execute",
+      "bash",
+    ];
+
+    const isGreeting =
+      wordCount <= 6 &&
+      !toolKeywords.some((keyword) => lowerMessage.includes(keyword));
+
+    if (isGreeting) {
+      return null;
+    }
+
+    const isNewsQuery = [
+      "news",
+      "latest",
+      "today",
+      "headline",
+      "headlines",
+      "breaking",
+      "current events",
+      "what's new",
+      "whats new",
+    ].some((keyword) => lowerMessage.includes(keyword));
+
+    if (isNewsQuery) {
+      return {
+        id: `heuristic-${Date.now()}`,
+        type: "function",
+        function: {
+          name: "live_search",
+          arguments: JSON.stringify({ query: trimmedMessage }),
+        },
+      };
+    }
+
     if (tools.length === 0) {
       return null;
     }
