@@ -1,4 +1,9 @@
-import { H1dr4Client, H1dr4Message, H1dr4ToolCall } from "../h1dr4/client";
+import {
+  H1dr4Client,
+  H1dr4Message,
+  H1dr4Tool,
+  H1dr4ToolCall,
+} from "../h1dr4/client";
 import {
   H1DR4_TOOLS,
   addMCPToolsToH1dr4Tools,
@@ -279,32 +284,36 @@ You can call tools for web search and charting.`,
 
     try {
       const tools = await getAllH1dr4Tools();
-      const routedToolCall = this.routeDirectToolCall(message);
-      if (routedToolCall) {
+      const selectedToolCall = await this.selectToolCallUsingModel(
+        message,
+        tools
+      );
+      if (selectedToolCall) {
+        toolRounds++;
         const assistantEntry: ChatEntry = {
           type: "assistant",
           content: "",
           timestamp: new Date(),
-          toolCalls: [routedToolCall],
+          toolCalls: [selectedToolCall],
         };
         this.chatHistory.push(assistantEntry);
         newEntries.push(assistantEntry);
         this.messages.push({
           role: "assistant",
           content: "",
-          tool_calls: [routedToolCall],
+          tool_calls: [selectedToolCall],
         } as any);
 
         const toolCallEntry: ChatEntry = {
           type: "tool_call",
           content: "Executing...",
           timestamp: new Date(),
-          toolCall: routedToolCall,
+          toolCall: selectedToolCall,
         };
         this.chatHistory.push(toolCallEntry);
         newEntries.push(toolCallEntry);
 
-        const result = await this.executeTool(routedToolCall);
+        const result = await this.executeTool(selectedToolCall);
         const updatedEntry: ChatEntry = {
           ...toolCallEntry,
           type: "tool_result",
@@ -315,7 +324,7 @@ You can call tools for web search and charting.`,
         };
         this.chatHistory.push(updatedEntry);
         newEntries.push(updatedEntry);
-        this.appendToolResultMessage(routedToolCall, result);
+        this.appendToolResultMessage(selectedToolCall, result);
       }
 
       let currentResponse = await this.h1dr4Client.chat(
@@ -527,42 +536,47 @@ You can call tools for web search and charting.`,
     let totalOutputTokens = 0;
 
     try {
-      const routedToolCall = this.routeDirectToolCall(message);
-      if (routedToolCall) {
+      const tools = await getAllH1dr4Tools();
+      const selectedToolCall = await this.selectToolCallUsingModel(
+        message,
+        tools
+      );
+      if (selectedToolCall) {
+        toolRounds++;
         const assistantEntry: ChatEntry = {
           type: "assistant",
           content: "",
           timestamp: new Date(),
-          toolCalls: [routedToolCall],
+          toolCalls: [selectedToolCall],
         };
         this.chatHistory.push(assistantEntry);
         this.messages.push({
           role: "assistant",
           content: "",
-          tool_calls: [routedToolCall],
+          tool_calls: [selectedToolCall],
         } as any);
         yield {
           type: "tool_calls",
-          toolCalls: [routedToolCall],
+          toolCalls: [selectedToolCall],
         };
 
-        const result = await this.executeTool(routedToolCall);
+        const result = await this.executeTool(selectedToolCall);
         const toolResultEntry: ChatEntry = {
           type: "tool_result",
           content: result.success
             ? result.output || "Success"
             : result.error || "Error occurred",
           timestamp: new Date(),
-          toolCall: routedToolCall,
+          toolCall: selectedToolCall,
           toolResult: result,
         };
         this.chatHistory.push(toolResultEntry);
         yield {
           type: "tool_result",
-          toolCall: routedToolCall,
+          toolCall: selectedToolCall,
           toolResult: result,
         };
-        this.appendToolResultMessage(routedToolCall, result);
+        this.appendToolResultMessage(selectedToolCall, result);
       }
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -578,7 +592,6 @@ You can call tools for web search and charting.`,
         }
 
         // Stream response and accumulate
-        const tools = await getAllH1dr4Tools();
         const stream = this.h1dr4Client.chatStream(
           this.messages,
           tools,
@@ -1016,7 +1029,7 @@ You can call tools for web search and charting.`,
 
     try {
       const parsed = JSON.parse(jsonMatch);
-      if (!parsed || !parsed.name) {
+      if (!parsed || parsed.name === null || parsed.name === undefined) {
         return [];
       }
       const args =
@@ -1038,44 +1051,53 @@ You can call tools for web search and charting.`,
     }
   }
 
-  private routeDirectToolCall(message: string): H1dr4ToolCall | null {
-    const trimmed = message.trim();
-    const lower = trimmed.toLowerCase();
-
-    if (
-      /what(?:'s| is) the time|current time|time is it/.test(lower)
-    ) {
-      return this.buildToolCall("bash", { command: "date" });
+  private async selectToolCallUsingModel(
+    message: string,
+    tools: H1dr4Tool[]
+  ): Promise<H1dr4ToolCall | null> {
+    if (tools.length === 0) {
+      return null;
     }
 
-    if (/latest news|news headlines|news update|search latest news/.test(lower)) {
-      return this.buildToolCall("live_search", { query: "latest news" });
-    }
+    const toolSummaries = tools
+      .map((tool) => {
+        const params = tool.function.parameters
+          ? JSON.stringify(tool.function.parameters)
+          : "{}";
+        return `- ${tool.function.name}: ${tool.function.description}\n  params: ${params}`;
+      })
+      .join("\n");
 
-    if (lower.startsWith("search ") || lower.startsWith("news ")) {
-      const query = trimmed.replace(/^(search|news)\s+/i, "").trim();
-      if (query) {
-        return this.buildToolCall("live_search", { query });
-      }
-    }
+    const selectionPrompt = [
+      {
+        role: "system",
+        content:
+          "You are a tool router. Decide if a tool should be called. " +
+          "Return ONLY JSON: {\"name\": <toolName>, \"arguments\": {..}} " +
+          "or {\"name\": null} if no tool is needed. Do not include code fences.",
+      },
+      {
+        role: "user",
+        content: `User request:\n${message}\n\nAvailable tools:\n${toolSummaries}`,
+      },
+    ];
 
-    if (lower.startsWith("osint") || lower.includes("osint ")) {
-      const query = trimmed.replace(/^osint\s*/i, "").trim() || trimmed;
-      return this.buildToolCall("osint_search", { query });
+    const response = await this.h1dr4Client.chat(
+      selectionPrompt as any,
+      [],
+      undefined,
+      undefined
+    );
+    const messageContent = response.choices[0]?.message?.content || "";
+    const toolCalls =
+      response.choices[0]?.message?.tool_calls ||
+      this.extractToolCallsFromContent(messageContent);
+
+    if (toolCalls && toolCalls.length > 0) {
+      return toolCalls[0];
     }
 
     return null;
-  }
-
-  private buildToolCall(name: string, args: Record<string, any>): H1dr4ToolCall {
-    return {
-      id: `direct-${name}-${Date.now()}`,
-      type: "function",
-      function: {
-        name,
-        arguments: JSON.stringify(args ?? {}),
-      },
-    };
   }
 
   private appendToolResultMessage(
