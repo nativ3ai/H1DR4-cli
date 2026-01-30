@@ -90,7 +90,7 @@ export class TodoTool extends EventEmitter {
         }
       }
 
-      // Build todo list asynchronously so updates can stream in
+      // Build todo list and emit a single update to avoid duplicated UI output
       for (const todo of todos) {
         const fullTodo = todo as TodoItem;
         const existingIndex = this.todos.findIndex((t) => t.id === fullTodo.id);
@@ -101,10 +101,8 @@ export class TodoTool extends EventEmitter {
           // Append new todo
           this.todos.push(fullTodo);
         }
-        this.emit('todo_update', this.formatTodoList());
-        // Yield to event loop to allow updates/interruption
-        await new Promise((resolve) => setTimeout(resolve, 0));
       }
+      this.emit('todo_update', this.formatTodoList());
 
       return {
         success: true,
