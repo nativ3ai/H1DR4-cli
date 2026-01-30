@@ -17,6 +17,8 @@ import {
   OSINTTool,
   ReasoningWorker,
   GdeltTool,
+  LiveSearchTool,
+  ShannonTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -53,6 +55,8 @@ export class H1dr4Agent extends EventEmitter {
   private search: SearchTool;
   private osint: OSINTTool;
   private gdelt: GdeltTool;
+  private liveSearch: LiveSearchTool;
+  private shannon: ShannonTool;
   private reasoningWorker: ReasoningWorker;
   private chatHistory: ChatEntry[] = [];
   private messages: H1dr4Message[] = [];
@@ -70,8 +74,17 @@ export class H1dr4Agent extends EventEmitter {
     super();
     const manager = getSettingsManager();
     const savedModel = manager.getCurrentModel();
-    const modelToUse = model || savedModel || "grok-4-latest";
-    this.maxToolRounds = maxToolRounds || 400;
+    const provider =
+      process.env.H1DR4_PROVIDER?.toLowerCase() === "ollama"
+        ? "ollama"
+        : "grok";
+    const modelToUse =
+      provider === "ollama"
+        ? model ||
+          process.env.H1DR4_MODEL ||
+          "huihui_ai/qwen2.5-coder-abliterate:7b"
+        : model || savedModel || "grok-4-latest";
+    this.maxToolRounds = maxToolRounds || (provider === "ollama" ? 8 : 400);
     this.h1dr4Client = new H1dr4Client(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
     this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
@@ -91,6 +104,8 @@ export class H1dr4Agent extends EventEmitter {
     this.search = new SearchTool();
     this.osint = new OSINTTool();
     this.gdelt = new GdeltTool();
+    this.liveSearch = new LiveSearchTool();
+    this.shannon = new ShannonTool();
     this.reasoningWorker = new ReasoningWorker();
     this.tokenCounter = createTokenCounter(modelToUse);
 
@@ -122,7 +137,8 @@ You have access to these tools:
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
 - gdelt_query: Query the GDELT proxy for conflict levels, country risk, bilateral relations, high-impact or economic events, BBVA-style bilateral conflict coverage, custom date searches, and keyword context retrieval (supports /gdelt and /gdelt/v2 with daily granularity options)
-- live_search: Search real-time web, news, and X posts using Grok's live search
+- live_search: Search the live web with DuckDuckGo and optionally fetch pages with citations
+- shannon: Run Shannon's autonomous pentesting CLI workflows (start, logs, query, stop)
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
 GDELT TOOL QUICK REFERENCE:
@@ -143,10 +159,10 @@ REASONING WORKER BEST PRACTICES:
 - Ineffective queries are vague, lack context, or are single words
 
 REAL-TIME INFORMATION:
- Use the live_search tool to query real-time web, news, and X (Twitter) data via Grok's live search.
- Provide descriptive queries; mode defaults to auto and all sources are searched unless you specify otherwise.
- Prefer live_search for current events, social media mentions, or up-to-the-minute data instead of the reasoning tool.
- This capability is independent from the reasoning worker and does not require user confirmation.
+ Use the live_search tool to query the web via DuckDuckGo and fetch readable page excerpts.
+ When using live_search, cite sources using the returned citations array.
+ Prefer short excerpts; do not paste entire articles.
+ Prefer live_search for current events instead of the reasoning tool.
 
  IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
@@ -212,7 +228,9 @@ IMPORTANT RESPONSE GUIDELINES:
 - Keep responses concise and focused on the actual work being done
 - If a tool execution completes the user's request, you can remain silent or give a brief confirmation
 
-Current working directory: ${process.cwd()}`,
+Current working directory: ${process.cwd()}
+
+You can call tools for web search and charting.`,
     });
   }
 
@@ -343,13 +361,7 @@ Current working directory: ${process.cwd()}`,
             }
 
             // Add tool result to messages with proper format (needed for AI context)
-            this.messages.push({
-              role: "tool",
-              content: result.success
-                ? result.output || "Success"
-                : result.error || "Error",
-              tool_call_id: toolCall.id,
-            });
+            this.appendToolResultMessage(toolCall, result);
           }
 
           // Get next response - this might contain more tool calls
@@ -606,13 +618,7 @@ Current working directory: ${process.cwd()}`,
             };
 
             // Add tool result with proper format (needed for AI context)
-            this.messages.push({
-              role: "tool",
-              content: result.success
-                ? result.output || "Success"
-                : result.error || "Error",
-              tool_call_id: toolCall.id,
-            });
+            this.appendToolResultMessage(toolCall, result);
           }
 
           // Update token count after processing all tool calls to include tool results
@@ -764,16 +770,22 @@ Current working directory: ${process.cwd()}`,
           });
 
         case "live_search":
-          const searchResponse = await this.h1dr4Client.search(
-            args.query,
-            args.search_parameters
-          );
-          return {
-            success: true,
-            output:
-              searchResponse.choices[0]?.message?.content ||
-              "No results returned",
-          };
+          return await this.liveSearch.search({
+            query: args.query,
+            max_results: args.max_results,
+            fetch_pages: args.fetch_pages,
+            max_chars_per_page: args.max_chars_per_page,
+            region: args.region,
+            safe: args.safe,
+          });
+
+        case "shannon":
+          return await this.shannon.run({
+            command: args.command,
+            working_directory: args.working_directory,
+            env: args.env,
+            timeout_ms: args.timeout_ms,
+          });
 
         case "reason":
           const confirmation = await this.confirmationTool.requestConfirmation({
@@ -881,6 +893,30 @@ Current working directory: ${process.cwd()}`,
         error: `MCP tool execution error: ${error.message}`,
       };
     }
+  }
+
+  private appendToolResultMessage(
+    toolCall: H1dr4ToolCall,
+    result: ToolResult
+  ): void {
+    const content = result.success
+      ? result.output || "Success"
+      : result.error || "Error";
+    const provider = this.h1dr4Client.getProvider();
+    if (provider === "ollama") {
+      this.messages.push({
+        role: "tool",
+        name: toolCall.function.name,
+        content,
+      } as any);
+      return;
+    }
+
+    this.messages.push({
+      role: "tool",
+      content,
+      tool_call_id: toolCall.id,
+    } as any);
   }
 
   getChatHistory(): ChatEntry[] {
