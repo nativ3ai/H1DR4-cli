@@ -142,7 +142,7 @@ You have access to these tools:
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
 - gdelt_query: Query the GDELT proxy for conflict levels, country risk, bilateral relations, high-impact or economic events, BBVA-style bilateral conflict coverage, custom date searches, and keyword context retrieval (supports /gdelt and /gdelt/v2 with daily granularity options)
-- live_search: Search the live web with DuckDuckGo and optionally fetch pages with citations
+- live_search: Search the live web with ScrapeGraphAI + Crawl4AI (DuckDuckGo fallback) and optionally fetch pages with citations
 - shannon: Run Shannon's autonomous pentesting CLI workflows (start, logs, query, stop)
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
@@ -164,7 +164,7 @@ REASONING WORKER BEST PRACTICES:
 - Ineffective queries are vague, lack context, or are single words
 
 REAL-TIME INFORMATION:
- Use the live_search tool to query the web via DuckDuckGo and fetch readable page excerpts.
+ Use the live_search tool to query the web via ScrapeGraphAI + Crawl4AI and fetch readable page excerpts.
  When using live_search, cite sources using the returned citations array.
  Prefer short excerpts; do not paste entire articles.
  Prefer live_search for current events instead of the reasoning tool.

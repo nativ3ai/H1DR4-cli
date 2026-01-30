@@ -326,7 +326,7 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     function: {
       name: "live_search",
       description:
-        "Search the live web via DuckDuckGo, optionally fetch pages, and return citations + excerpts",
+        "Search the live web via ScrapeGraphAI + Crawl4AI (with DuckDuckGo fallback), optionally fetch pages, and return citations + excerpts",
       parameters: {
         type: "object",
         properties: {
