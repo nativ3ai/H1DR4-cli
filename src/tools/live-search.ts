@@ -12,6 +12,7 @@ export interface LiveSearchOptions {
   max_chars_per_page?: number;
   region?: string;
   safe?: "on" | "moderate" | "off";
+  mode?: "fast" | "robust";
 }
 
 interface LiveSearchResult {
@@ -37,6 +38,7 @@ const MAX_CONCURRENCY = 3;
 const PYTHON_SCRIPT_RELATIVE_PATH = path.join("tools", "python", "live_search.py");
 const PYTHON_TIMEOUT_MS = 15000;
 const LIVE_SEARCH_MODE = process.env.LIVE_SEARCH_MODE ?? "fast";
+const SCRAPEGRAPH_ENV_KEYS = ["OPENAI_API_KEY", "SCRAPEGRAPH_API_KEY"];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -68,6 +70,41 @@ function normalizeDuckDuckGoUrl(url: string): string {
 
 function cleanText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+function normalizeSearchQuery(query: string): string {
+  const cleaned = query
+    .replace(/[“”"]/g, "")
+    .replace(/[?!.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return query;
+
+  const stopWords = new Set([
+    "please",
+    "pls",
+    "plz",
+    "ok",
+    "okay",
+    "hey",
+    "hi",
+    "can",
+    "could",
+    "would",
+    "you",
+    "me",
+    "tell",
+    "show",
+    "find",
+    "search",
+    "check",
+    "get",
+    "latest",
+  ]);
+  const tokens = cleaned
+    .split(" ")
+    .filter((token) => token && !stopWords.has(token.toLowerCase()));
+  return tokens.length > 0 ? tokens.join(" ") : cleaned;
 }
 
 function extractReadableText(html: string): string {
@@ -202,18 +239,19 @@ async function runPythonLiveSearch(
 async function searchViaDuckDuckGo(
   options: LiveSearchOptions
 ): Promise<LiveSearchResponse> {
-  const query = options.query?.trim();
+  const query = normalizeSearchQuery(options.query?.trim() ?? "");
   if (!query) {
     throw new Error("Query is required for live_search");
   }
 
   const maxResults = Math.max(1, options.max_results ?? 5);
-  const fetchPages = options.fetch_pages ?? true;
+  const fetchPages = options.fetch_pages ?? false;
   const maxChars = Math.max(1000, options.max_chars_per_page ?? 8000);
   const region = options.region ?? "wt-wt";
   const safe = options.safe ?? "moderate";
 
   const results: LiveSearchResult[] = [];
+  const seenUrls = new Set<string>();
   const sources = [
     "https://duckduckgo.com/html/",
     "https://html.duckduckgo.com/html/",
@@ -241,10 +279,9 @@ async function searchViaDuckDuckGo(
     });
 
     const $ = cheerio.load(response.data);
-    const selectors =
-      sourceUrl.includes("lite")
-        ? ["a.result-link"]
-        : ["a.result__a", "a.result__url", "a"];
+    const selectors = sourceUrl.includes("lite")
+      ? ["a.result-link"]
+      : ["a.result__a", "a.result__url"];
 
     selectors.forEach((selector) => {
       if (results.length >= maxResults) {
@@ -262,6 +299,16 @@ async function searchViaDuckDuckGo(
           return;
         }
         const url = normalizeDuckDuckGoUrl(rawUrl);
+        if (
+          url.includes("duckduckgo.com") ||
+          url.includes("duck.com") ||
+          url.includes("duckduckgo.com/html")
+        ) {
+          return;
+        }
+        if (seenUrls.has(url)) {
+          return;
+        }
         const snippet = cleanText(
           linkEl
             .closest("tr, div, li")
@@ -270,6 +317,7 @@ async function searchViaDuckDuckGo(
             .text()
         );
 
+        seenUrls.add(url);
         results.push({
           title: title || url,
           url,
@@ -344,20 +392,30 @@ export class LiveSearchTool {
         return { success: false, error: "Query is required for live_search" };
       }
 
+      const mode =
+        options.mode ??
+        (SCRAPEGRAPH_ENV_KEYS.some((key) => Boolean(process.env[key]))
+          ? "robust"
+          : LIVE_SEARCH_MODE);
+      const effectiveOptions: LiveSearchOptions = {
+        ...options,
+        fetch_pages: options.fetch_pages ?? mode === "robust",
+      };
+
       let payload: LiveSearchResponse | null = null;
-      if (LIVE_SEARCH_MODE === "robust") {
+      if (mode === "robust") {
         try {
-          payload = await runPythonLiveSearch(options);
+          payload = await runPythonLiveSearch(effectiveOptions);
         } catch {
-          payload = await searchViaDuckDuckGo(options);
+          payload = await searchViaDuckDuckGo(effectiveOptions);
         }
       } else {
-        payload = await searchViaDuckDuckGo(options);
+        payload = await searchViaDuckDuckGo(effectiveOptions);
         if (payload.results.length === 0) {
           try {
-            payload = await runPythonLiveSearch(options);
+            payload = await runPythonLiveSearch(effectiveOptions);
           } catch {
-            payload = await searchViaDuckDuckGo(options);
+            payload = await searchViaDuckDuckGo(effectiveOptions);
           }
         }
       }

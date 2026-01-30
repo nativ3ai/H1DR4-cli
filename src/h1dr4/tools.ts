@@ -355,6 +355,12 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
             enum: ["on", "moderate", "off"],
             description: "Safe search setting (default: moderate)",
           },
+          mode: {
+            type: "string",
+            enum: ["fast", "robust"],
+            description:
+              "Search mode: 'fast' for quick DuckDuckGo scrape, 'robust' for ScrapeGraphAI + Crawl4AI when available",
+          },
         },
         required: ["query"],
       },

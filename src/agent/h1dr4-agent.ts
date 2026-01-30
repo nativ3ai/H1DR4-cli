@@ -1063,6 +1063,49 @@ You can call tools for web search and charting.`,
 
     const lowerMessage = trimmedMessage.toLowerCase();
     const wordCount = trimmedMessage.split(/\s+/).filter(Boolean).length;
+    const shellCommandVerbs = [
+      "ls",
+      "pwd",
+      "cat",
+      "cd",
+      "mkdir",
+      "rm",
+      "cp",
+      "mv",
+      "rg",
+      "grep",
+      "find",
+      "git",
+      "npm",
+      "yarn",
+      "pnpm",
+      "node",
+      "python",
+      "bash",
+      "sh",
+      "chmod",
+      "curl",
+      "wget",
+    ];
+    const firstToken = trimmedMessage.split(/\s+/)[0]?.toLowerCase() ?? "";
+    const isExplicitBash =
+      firstToken.startsWith("!") ||
+      trimmedMessage.startsWith("$ ") ||
+      shellCommandVerbs.includes(firstToken);
+
+    if (isExplicitBash) {
+      const command = trimmedMessage.startsWith("!")
+        ? trimmedMessage.slice(1).trim()
+        : trimmedMessage.replace(/^\$\s*/, "");
+      return {
+        id: `heuristic-${Date.now()}`,
+        type: "function",
+        function: {
+          name: "bash",
+          arguments: JSON.stringify({ command }),
+        },
+      };
+    }
     const toolKeywords = [
       "search",
       "find",
@@ -1115,7 +1158,7 @@ You can call tools for web search and charting.`,
         type: "function",
         function: {
           name: "live_search",
-          arguments: JSON.stringify({ query: trimmedMessage }),
+          arguments: JSON.stringify({ query: trimmedMessage, mode: "robust" }),
         },
       };
     }
