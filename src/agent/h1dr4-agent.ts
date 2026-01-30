@@ -65,6 +65,50 @@ export class H1dr4Agent extends EventEmitter {
   private mcpInitialized: boolean = false;
   private maxToolRounds: number;
 
+  private parseToolCallsFromContent(content?: string): H1dr4ToolCall[] {
+    if (!content) return [];
+
+    const toolCalls: H1dr4ToolCall[] = [];
+    const candidates: string[] = [];
+
+    const fenceMatches = content.match(/```(?:json)?([\s\S]*?)```/gi);
+    if (fenceMatches) {
+      for (const fence of fenceMatches) {
+        const stripped = fence.replace(/```(?:json)?/gi, "").replace(/```/g, "");
+        candidates.push(stripped);
+      }
+    }
+
+    candidates.push(content);
+
+    for (const candidate of candidates) {
+      const match = candidate.match(/\{[\s\S]*\}/);
+      if (!match) continue;
+      try {
+        const parsed = JSON.parse(match[0]);
+        const parsedCalls = Array.isArray(parsed) ? parsed : [parsed];
+        for (const call of parsedCalls) {
+          if (!call) continue;
+          const name = call.name || call.tool || call.function?.name;
+          if (!name) continue;
+          const args = call.arguments ?? call.args ?? call.function?.arguments ?? {};
+          toolCalls.push({
+            id: `parsed-${Date.now()}-${toolCalls.length}`,
+            type: "function",
+            function: {
+              name,
+              arguments: typeof args === "string" ? args : JSON.stringify(args),
+            },
+          });
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return toolCalls;
+  }
+
   constructor(
     apiKey: string,
     baseURL?: string,
@@ -290,6 +334,14 @@ You can call tools for web search and charting.`,
 
         if (!assistantMessage) {
           throw new Error("No response from H1dr4");
+        }
+
+        const parsedToolCalls =
+          !assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0
+            ? this.parseToolCallsFromContent(assistantMessage.content || "")
+            : [];
+        if (parsedToolCalls.length > 0) {
+          assistantMessage.tool_calls = parsedToolCalls;
         }
 
         // Handle tool calls
@@ -561,6 +613,15 @@ You can call tools for web search and charting.`,
               type: "token_count",
               tokenCount: inputTokens + totalOutputTokens,
             };
+          }
+        }
+
+        if (!accumulatedMessage.tool_calls?.length) {
+          const parsedToolCalls = this.parseToolCallsFromContent(
+            accumulatedMessage.content || ""
+          );
+          if (parsedToolCalls.length > 0) {
+            accumulatedMessage.tool_calls = parsedToolCalls;
           }
         }
 
