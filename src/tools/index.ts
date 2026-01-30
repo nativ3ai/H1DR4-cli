@@ -7,3 +7,5 @@ export { SearchTool } from "./search";
 export { OSINTTool } from "./osint";
 export { ReasoningWorker } from "./reasoning-worker";
 export { GdeltTool } from "./gdelt";
+export { LiveSearchTool } from "./live-search";
+export { ShannonTool } from "./shannon";
