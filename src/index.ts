@@ -18,6 +18,15 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import {
+  DEFAULT_OLLAMA_HOST,
+  DEFAULT_OLLAMA_MODEL,
+  DEFAULT_MAX_HISTORY_MESSAGES,
+  DEFAULT_MAX_HISTORY_TOKENS,
+  parseBoolean,
+  parseNumber,
+  resolveProvider,
+} from "./utils/config";
 
 // Load environment variables
 dotenv.config();
@@ -130,7 +139,11 @@ async function saveCommandLineSettings(apiKey?: string, baseURL?: string): Promi
 }
 
 // Load model from user settings if not in environment
-function loadModel(): string | undefined {
+function loadModel(provider: "ollama" | "remote"): string | undefined {
+  if (provider === "ollama") {
+    return process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
+  }
+
   // First check environment variables
   let model = process.env.H1DR4_MODEL;
 
@@ -147,15 +160,87 @@ function loadModel(): string | undefined {
   return model;
 }
 
+function resolveAgentConfig(options: {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+  provider?: string;
+  localOnly?: boolean | string;
+  liveSearch?: string;
+  maxSources?: string;
+  citations?: string;
+  maxToolRounds?: string;
+  maxHistory?: string;
+  maxHistoryTokens?: string;
+  debug?: boolean;
+  debugPerf?: boolean;
+}) {
+  const provider = resolveProvider(
+    options.provider || process.env.H1DR4_PROVIDER
+  );
+  const localOnly = parseBoolean(
+    options.localOnly ?? process.env.LOCAL_ONLY,
+    false
+  );
+  const model =
+    options.model ||
+    loadModel(provider) ||
+    (provider === "ollama" ? DEFAULT_OLLAMA_MODEL : "grok-4-latest");
+  const maxToolRounds = parseNumber(options.maxToolRounds, 400);
+  const liveSearchEnabled = parseBoolean(
+    options.liveSearch || process.env.H1DR4_LIVE_SEARCH,
+    true
+  );
+  const maxSources = parseNumber(
+    options.maxSources || process.env.H1DR4_MAX_SOURCES,
+    5
+  );
+  const citations = parseBoolean(
+    options.citations || process.env.H1DR4_CITATIONS,
+    true
+  );
+  const maxHistoryMessages = parseNumber(
+    options.maxHistory || process.env.H1DR4_MAX_HISTORY,
+    DEFAULT_MAX_HISTORY_MESSAGES
+  );
+  const maxHistoryTokens = parseNumber(
+    options.maxHistoryTokens || process.env.H1DR4_MAX_HISTORY_TOKENS,
+    DEFAULT_MAX_HISTORY_TOKENS
+  );
+  const debug = parseBoolean(
+    options.debug ?? process.env.H1DR4_DEBUG,
+    false
+  );
+  const debugPerf = parseBoolean(
+    options.debugPerf ?? process.env.H1DR4_DEBUG_PERF,
+    false
+  );
+
+  return {
+    provider,
+    localOnly,
+    model,
+    maxToolRounds,
+    maxHistoryMessages,
+    maxHistoryTokens,
+    debug,
+    debugPerf,
+    apiKey: options.apiKey || (provider === "remote" ? loadApiKey() : undefined),
+    baseURL: options.baseUrl || loadBaseURL(),
+    ollamaHost: process.env.OLLAMA_HOST || DEFAULT_OLLAMA_HOST,
+    ollamaKeepAlive: process.env.OLLAMA_KEEP_ALIVE,
+    liveSearchEnabled,
+    maxSources,
+    citations,
+  };
+}
+
 // Handle commit-and-push command in headless mode
 async function handleCommitAndPushHeadless(
-  apiKey: string,
-  baseURL?: string,
-  model?: string,
-  maxToolRounds?: number
+  agentConfig: ReturnType<typeof resolveAgentConfig>
 ): Promise<void> {
   try {
-    const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
+    const agent = new H1dr4Agent(agentConfig);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -271,13 +356,10 @@ Respond with ONLY the commit message, no additional text.`;
 // Headless mode processing function
 async function processPromptHeadless(
   prompt: string,
-  apiKey: string,
-  baseURL?: string,
-  model?: string,
-  maxToolRounds?: number
+  agentConfig: ReturnType<typeof resolveAgentConfig>
 ): Promise<void> {
   try {
-    const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
+    const agent = new H1dr4Agent(agentConfig);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -354,14 +436,37 @@ program
   )
   .version("1.0.1")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
+  .option(
+    "-k, --api-key <key>",
+    "API key for remote provider (or set GROK_API_KEY env var)"
+  )
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set GROK_BASE_URL env var)"
+    "Remote API base URL (or set GROK_BASE_URL env var)"
+  )
+  .option(
+    "--provider <provider>",
+    "LLM provider to use (ollama|remote) (default: ollama)"
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
+    "AI model to use (e.g., huihui_ai/qwen2.5-coder-abliterate:7b, grok-4-latest) (or set H1DR4_MODEL/OLLAMA_MODEL env var)"
+  )
+  .option(
+    "--local-only",
+    "Forbid remote provider usage (or set LOCAL_ONLY=true)"
+  )
+  .option(
+    "--live-search <mode>",
+    "Enable live search (on|off) (default: on)"
+  )
+  .option(
+    "--max-sources <n>",
+    "Maximum live search sources (default: 5)"
+  )
+  .option(
+    "--citations <mode>",
+    "Include citations in live search (on|off) (default: on)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -372,6 +477,16 @@ program
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "--max-history <count>",
+    "maximum number of recent messages to keep before summarizing"
+  )
+  .option(
+    "--max-history-tokens <count>",
+    "maximum prompt tokens before summarizing history"
+  )
+  .option("--debug", "enable debug logging")
+  .option("--debug-perf", "enable performance profiling logs")
   .action(async (options) => {
     if (options.directory) {
       try {
@@ -386,15 +501,18 @@ program
     }
 
     try {
-      // Get API key from options, environment, or user settings
-      const apiKey = options.apiKey || loadApiKey();
-      const baseURL = options.baseUrl || loadBaseURL();
-      const model = options.model || loadModel();
-      const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      const agentConfig = resolveAgentConfig(options);
 
-      if (!apiKey) {
+      if (agentConfig.localOnly && agentConfig.provider === "remote") {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
+          "❌ Error: Remote provider blocked because LOCAL_ONLY is enabled."
+        );
+        process.exit(1);
+      }
+
+      if (agentConfig.provider === "remote" && !agentConfig.apiKey) {
+        console.error(
+          "❌ Error: API key required for remote provider. Set GROK_API_KEY or use --api-key."
         );
         process.exit(1);
       }
@@ -406,12 +524,12 @@ program
 
       // Headless mode: process prompt and exit
       if (options.prompt) {
-        await processPromptHeadless(options.prompt, apiKey, baseURL, model, maxToolRounds);
+        await processPromptHeadless(options.prompt, agentConfig);
         return;
       }
 
       // Interactive mode: launch UI
-      const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
+      const agent = new H1dr4Agent(agentConfig);
       console.log("🤖 Starting H1dr4 CLI Conversational Assistant...\n");
 
       ensureUserSettingsDirectory();
@@ -434,20 +552,53 @@ gitCommand
   .command("commit-and-push")
   .description("Generate AI commit message and push to remote")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
+  .option(
+    "-k, --api-key <key>",
+    "API key for remote provider (or set GROK_API_KEY env var)"
+  )
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set GROK_BASE_URL env var)"
+    "Remote API base URL (or set GROK_BASE_URL env var)"
+  )
+  .option(
+    "--provider <provider>",
+    "LLM provider to use (ollama|remote) (default: ollama)"
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
+    "AI model to use (e.g., huihui_ai/qwen2.5-coder-abliterate:7b, grok-4-latest) (or set H1DR4_MODEL/OLLAMA_MODEL env var)"
+  )
+  .option(
+    "--local-only",
+    "Forbid remote provider usage (or set LOCAL_ONLY=true)"
+  )
+  .option(
+    "--live-search <mode>",
+    "Enable live search (on|off) (default: on)"
+  )
+  .option(
+    "--max-sources <n>",
+    "Maximum live search sources (default: 5)"
+  )
+  .option(
+    "--citations <mode>",
+    "Include citations in live search (on|off) (default: on)"
   )
   .option(
     "--max-tool-rounds <rounds>",
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "--max-history <count>",
+    "maximum number of recent messages to keep before summarizing"
+  )
+  .option(
+    "--max-history-tokens <count>",
+    "maximum prompt tokens before summarizing history"
+  )
+  .option("--debug", "enable debug logging")
+  .option("--debug-perf", "enable performance profiling logs")
   .action(async (options) => {
     if (options.directory) {
       try {
@@ -462,15 +613,18 @@ gitCommand
     }
 
     try {
-      // Get API key from options, environment, or user settings
-      const apiKey = options.apiKey || loadApiKey();
-      const baseURL = options.baseUrl || loadBaseURL();
-      const model = options.model || loadModel();
-      const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      const agentConfig = resolveAgentConfig(options);
 
-      if (!apiKey) {
+      if (agentConfig.localOnly && agentConfig.provider === "remote") {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
+          "❌ Error: Remote provider blocked because LOCAL_ONLY is enabled."
+        );
+        process.exit(1);
+      }
+
+      if (agentConfig.provider === "remote" && !agentConfig.apiKey) {
+        console.error(
+          "❌ Error: API key required for remote provider. Set GROK_API_KEY or use --api-key."
         );
         process.exit(1);
       }
@@ -480,7 +634,7 @@ gitCommand
         await saveCommandLineSettings(options.apiKey, options.baseUrl);
       }
 
-      await handleCommitAndPushHeadless(apiKey, baseURL, model, maxToolRounds);
+      await handleCommitAndPushHeadless(agentConfig);
     } catch (error: any) {
       console.error("❌ Error during git commit-and-push:", error.message);
       process.exit(1);

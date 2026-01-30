@@ -326,7 +326,7 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     function: {
       name: "live_search",
       description:
-        "Search real-time web, news, and X posts using Grok's live search",
+        "Search the web locally using Crawl4AI + ScrapeGraphAI with citations",
       parameters: {
         type: "object",
         properties: {
@@ -337,7 +337,7 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
           search_parameters: {
             type: "object",
             description:
-              "Optional live search parameters (defaults to auto mode with all sources)",
+              "Optional live search parameters (defaults to auto mode with citations)",
             properties: {
               mode: {
                 type: "string",
@@ -348,6 +348,18 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
               max_search_results: { type: "number" },
               return_citations: { type: "boolean" },
             },
+          },
+          max_sources: {
+            type: "number",
+            description: "Maximum number of sources to crawl (default: 5)",
+          },
+          citations: {
+            type: "boolean",
+            description: "Whether to include citations in output (default: true)",
+          },
+          return_raw: {
+            type: "boolean",
+            description: "Return raw extracted text per source (default: false)",
           },
         },
         required: ["query"],

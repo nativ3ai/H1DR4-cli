@@ -1,7 +1,7 @@
-import { H1dr4Client, H1dr4Message, H1dr4ToolCall } from "../h1dr4/client";
+import { H1dr4Message, H1dr4ToolCall } from "../h1dr4/types";
+import { LLMProvider } from "../providers/llm-provider";
+import { createProvider, ProviderName } from "../providers/provider-factory";
 import {
-  H1DR4_TOOLS,
-  addMCPToolsToH1dr4Tools,
   getAllH1dr4Tools,
   getMCPManager,
   initializeMCPServers,
@@ -17,12 +17,31 @@ import {
   OSINTTool,
   ReasoningWorker,
   GdeltTool,
+  LiveSearchTool,
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
+import { randomUUID } from "crypto";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
 import { loadCustomInstructions } from "../utils/custom-instructions";
-import { getSettingsManager } from "../utils/settings-manager";
+
+export interface AgentConfig {
+  provider: ProviderName;
+  apiKey?: string;
+  baseURL?: string;
+  model: string;
+  ollamaHost: string;
+  ollamaKeepAlive?: string;
+  localOnly?: boolean;
+  maxToolRounds?: number;
+  maxHistoryMessages?: number;
+  maxHistoryTokens?: number;
+  debug?: boolean;
+  debugPerf?: boolean;
+  liveSearchEnabled?: boolean;
+  maxSources?: number;
+  citations?: boolean;
+}
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -44,13 +63,14 @@ export interface StreamingChunk {
 }
 
 export class H1dr4Agent extends EventEmitter {
-  private h1dr4Client: H1dr4Client;
+  private llmProvider: LLMProvider;
   private textEditor: TextEditorTool;
   private morphEditor: MorphEditorTool | null;
   private bash: BashTool;
   private todoTool: TodoTool;
   private confirmationTool: ConfirmationTool;
   private search: SearchTool;
+  private liveSearch: LiveSearchTool;
   private osint: OSINTTool;
   private gdelt: GdeltTool;
   private reasoningWorker: ReasoningWorker;
@@ -60,19 +80,28 @@ export class H1dr4Agent extends EventEmitter {
   private abortController: AbortController | null = null;
   private mcpInitialized: boolean = false;
   private maxToolRounds: number;
+  private maxHistoryMessages: number;
+  private maxHistoryTokens: number;
+  private debug: boolean;
+  private debugPerf: boolean;
 
-  constructor(
-    apiKey: string,
-    baseURL?: string,
-    model?: string,
-    maxToolRounds?: number
-  ) {
+  constructor(config: AgentConfig) {
     super();
-    const manager = getSettingsManager();
-    const savedModel = manager.getCurrentModel();
-    const modelToUse = model || savedModel || "grok-4-latest";
-    this.maxToolRounds = maxToolRounds || 400;
-    this.h1dr4Client = new H1dr4Client(apiKey, modelToUse, baseURL);
+    const modelToUse = config.model;
+    this.maxToolRounds = config.maxToolRounds || 400;
+    this.maxHistoryMessages = config.maxHistoryMessages || 20;
+    this.maxHistoryTokens = config.maxHistoryTokens || 4000;
+    this.debug = config.debug || false;
+    this.debugPerf = config.debugPerf || false;
+    this.llmProvider = createProvider({
+      provider: config.provider,
+      apiKey: config.apiKey,
+      baseURL: config.baseURL,
+      model: modelToUse,
+      ollamaHost: config.ollamaHost,
+      ollamaKeepAlive: config.ollamaKeepAlive,
+      localOnly: config.localOnly,
+    });
     this.textEditor = new TextEditorTool();
     this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
     this.bash = new BashTool();
@@ -89,6 +118,11 @@ export class H1dr4Agent extends EventEmitter {
     });
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
+    this.liveSearch = new LiveSearchTool(this.llmProvider, {
+      enabled: config.liveSearchEnabled,
+      maxSources: config.maxSources,
+      citations: config.citations,
+    });
     this.osint = new OSINTTool();
     this.gdelt = new GdeltTool();
     this.reasoningWorker = new ReasoningWorker();
@@ -122,7 +156,7 @@ You have access to these tools:
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
 - gdelt_query: Query the GDELT proxy for conflict levels, country risk, bilateral relations, high-impact or economic events, BBVA-style bilateral conflict coverage, custom date searches, and keyword context retrieval (supports /gdelt and /gdelt/v2 with daily granularity options)
-- live_search: Search real-time web, news, and X posts using Grok's live search
+- live_search: Search the web locally using Crawl4AI + ScrapeGraphAI for citations
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
 GDELT TOOL QUICK REFERENCE:
@@ -142,11 +176,17 @@ REASONING WORKER BEST PRACTICES:
 - Include relevant keywords to trigger specialized modes (e.g., polymarket, election, news, crypto, remember, search, comprehensive, osint, blockchain, economic)
 - Ineffective queries are vague, lack context, or are single words
 
-REAL-TIME INFORMATION:
- Use the live_search tool to query real-time web, news, and X (Twitter) data via Grok's live search.
- Provide descriptive queries; mode defaults to auto and all sources are searched unless you specify otherwise.
- Prefer live_search for current events, social media mentions, or up-to-the-minute data instead of the reasoning tool.
+LIVE SEARCH (LOCAL):
+ Use the live_search tool to query the web using the local Crawl4AI + ScrapeGraphAI pipeline.
+ Provide descriptive queries; mode defaults to auto and citations are returned unless you disable them.
+ Prefer live_search for current events or up-to-the-minute data instead of the reasoning tool.
  This capability is independent from the reasoning worker and does not require user confirmation.
+
+TOOL USE POLICY:
+- When the user asks you to perform an action that maps to a tool, CALL THE TOOL directly.
+- Do NOT instruct the user to run tools or print tool JSON without executing it.
+- If you need to call a tool and native tool calls are unavailable, respond with ONLY a single JSON object:
+  {"tool":"tool_name","args":{...}}
 
  IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
@@ -232,17 +272,119 @@ Current working directory: ${process.cwd()}`,
     });
   }
 
+  private logDebug(message: string): void {
+    if (this.debug) {
+      console.log(`[debug] ${message}`);
+    }
+  }
+
+  private logPerf(message: string): void {
+    if (this.debugPerf) {
+      console.log(`[perf] ${message}`);
+    }
+  }
+
+  private getPromptStats(): { tokens: number; systemCount: number } {
+    const tokens = this.tokenCounter.countMessageTokens(this.messages as any);
+    const systemCount = this.messages.filter((msg) => msg.role === "system")
+      .length;
+    return { tokens, systemCount };
+  }
+
+  private stripCodeFences(content: string): string {
+    const trimmed = content.trim();
+    if (trimmed.startsWith("```")) {
+      return trimmed.replace(/^```(?:json)?\n?/i, "").replace(/```$/, "").trim();
+    }
+    return trimmed;
+  }
+
+  private parseToolCallFromContent(
+    content: string | null,
+    tools: Awaited<ReturnType<typeof getAllH1dr4Tools>>
+  ): H1dr4ToolCall[] | null {
+    if (!content) return null;
+    const cleaned = this.stripCodeFences(content);
+    if (!cleaned.startsWith("{") || !cleaned.includes('"tool"')) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(cleaned) as { tool?: string; args?: any };
+      if (!parsed.tool) return null;
+      const known = tools.some((tool) => tool.function.name === parsed.tool);
+      if (!known) return null;
+      return [
+        {
+          id: randomUUID(),
+          type: "function",
+          function: {
+            name: parsed.tool,
+            arguments: JSON.stringify(parsed.args ?? {}),
+          },
+        },
+      ];
+    } catch {
+      return null;
+    }
+  }
+
+  private async compressHistoryIfNeeded(): Promise<void> {
+    const { tokens } = this.getPromptStats();
+    if (
+      this.messages.length <= this.maxHistoryMessages &&
+      tokens <= this.maxHistoryTokens
+    ) {
+      return;
+    }
+
+    const systemMessage = this.messages.find((msg) => msg.role === "system");
+    const nonSystemMessages = this.messages.filter(
+      (msg) => msg.role !== "system"
+    );
+    const keepTail = nonSystemMessages.slice(-10);
+    const toSummarize = nonSystemMessages.slice(0, -10);
+
+    if (toSummarize.length === 0) {
+      return;
+    }
+
+    this.logDebug(
+      `Summarizing history: ${toSummarize.length} messages, tokens=${tokens}`
+    );
+
+    const summaryPrompt = `Summarize the prior conversation in 6-10 bullet points. Focus on decisions, tool outputs, and user intent.`;
+    const response = await this.llmProvider.chat([
+      { role: "system", content: summaryPrompt },
+      {
+        role: "user",
+        content: toSummarize
+          .map((msg) => `${msg.role.toUpperCase()}: ${msg.content || ""}`)
+          .join("\n"),
+      },
+    ]);
+    const summaryContent =
+      response.choices[0]?.message?.content?.trim() ||
+      "Summary unavailable.";
+
+    const summaryMessage: H1dr4Message = {
+      role: "assistant",
+      content: `[Conversation summary]\n${summaryContent}`,
+    };
+
+    this.messages = [
+      ...(systemMessage ? [systemMessage] : []),
+      summaryMessage,
+      ...keepTail,
+    ];
+  }
+
   private addChatEntry(entry: ChatEntry): void {
     this.chatHistory.push(entry);
     this.emit("chat_entry", entry);
   }
 
-  private isH1dr4Model(): boolean {
-    const currentModel = this.h1dr4Client.getCurrentModel();
-    return currentModel.toLowerCase().includes("h1dr4");
-  }
-
   async processUserMessage(message: string): Promise<ChatEntry[]> {
+    const requestStart = Date.now();
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
@@ -259,34 +401,51 @@ Current working directory: ${process.cwd()}`,
 
     try {
       const tools = await getAllH1dr4Tools();
-      let currentResponse = await this.h1dr4Client.chat(
-        this.messages,
-        tools,
-        undefined,
-        this.isH1dr4Model() ? { search_parameters: { mode: "auto" } } : undefined
+      await this.compressHistoryIfNeeded();
+      const { tokens, systemCount } = this.getPromptStats();
+      this.logDebug(
+        `promptTokens=${tokens} systemMessages=${systemCount} historyCount=${this.messages.length}`
       );
+      if (systemCount > 1) {
+        this.logDebug("System prompt duplication detected.");
+      }
+
+      let currentResponse = await this.llmProvider.chat(this.messages, tools);
 
       // Agent loop - continue until no more tool calls or max rounds reached
       while (toolRounds < maxToolRounds) {
         const assistantMessage = currentResponse.choices[0]?.message;
 
         if (!assistantMessage) {
-          throw new Error("No response from H1dr4");
+          throw new Error("No response from LLM provider");
         }
+
+        const parsedToolCalls =
+          assistantMessage.tool_calls ||
+          this.parseToolCallFromContent(assistantMessage.content, tools);
+        if (assistantMessage.tool_calls?.length) {
+          this.logDebug("Tool call detected via native tool calls.");
+        } else if (parsedToolCalls) {
+          this.logDebug("Tool call detected via JSON envelope.");
+        }
+        const assistantContent =
+          parsedToolCalls && !assistantMessage.tool_calls
+            ? ""
+            : assistantMessage.content || "";
 
         // Handle tool calls
         if (
-          assistantMessage.tool_calls &&
-          assistantMessage.tool_calls.length > 0
+          parsedToolCalls &&
+          parsedToolCalls.length > 0
         ) {
           toolRounds++;
 
           // Add assistant message with tool calls
           const assistantEntry: ChatEntry = {
             type: "assistant",
-            content: assistantMessage.content || "Using tools to help you...",
+            content: assistantContent || "Using tools to help you...",
             timestamp: new Date(),
-            toolCalls: assistantMessage.tool_calls,
+            toolCalls: parsedToolCalls,
           };
           this.chatHistory.push(assistantEntry);
           newEntries.push(assistantEntry);
@@ -294,12 +453,12 @@ Current working directory: ${process.cwd()}`,
           // Add assistant message to conversation
           this.messages.push({
             role: "assistant",
-            content: assistantMessage.content || "",
-            tool_calls: assistantMessage.tool_calls,
+            content: assistantContent,
+            tool_calls: parsedToolCalls,
           } as any);
 
           // Create initial tool call entries to show tools are being executed
-          assistantMessage.tool_calls.forEach((toolCall) => {
+          parsedToolCalls.forEach((toolCall) => {
             const toolCallEntry: ChatEntry = {
               type: "tool_call",
               content: "Executing...",
@@ -311,8 +470,12 @@ Current working directory: ${process.cwd()}`,
           });
 
           // Execute tool calls and update the entries
-          for (const toolCall of assistantMessage.tool_calls) {
+          for (const toolCall of parsedToolCalls) {
+            const toolStart = Date.now();
             const result = await this.executeTool(toolCall);
+            this.logPerf(
+              `tool=${toolCall.function.name} durationMs=${Date.now() - toolStart}`
+            );
 
             // Update the existing tool_call entry with the result
             const entryIndex = this.chatHistory.findIndex(
@@ -353,14 +516,12 @@ Current working directory: ${process.cwd()}`,
           }
 
           // Get next response - this might contain more tool calls
-          currentResponse = await this.h1dr4Client.chat(
-            this.messages,
-            tools,
-            undefined,
-            this.isH1dr4Model()
-              ? { search_parameters: { mode: "auto" } }
-              : undefined
+          await this.compressHistoryIfNeeded();
+          const stats = this.getPromptStats();
+          this.logDebug(
+            `promptTokens=${stats.tokens} systemMessages=${stats.systemCount} historyCount=${this.messages.length}`
           );
+          currentResponse = await this.llmProvider.chat(this.messages, tools);
         } else {
           // No more tool calls, add final response
           const finalEntry: ChatEntry = {
@@ -400,6 +561,8 @@ Current working directory: ${process.cwd()}`,
       };
       this.chatHistory.push(errorEntry);
       return [userEntry, errorEntry];
+    } finally {
+      this.logPerf(`totalResponseMs=${Date.now() - requestStart}`);
     }
   }
 
@@ -436,6 +599,7 @@ Current working directory: ${process.cwd()}`,
   async *processUserMessageStream(
     message: string
   ): AsyncGenerator<StreamingChunk, void, unknown> {
+    const requestStart = Date.now();
     // Create new abort controller for this request
     this.abortController = new AbortController();
 
@@ -476,17 +640,20 @@ Current working directory: ${process.cwd()}`,
 
         // Stream response and accumulate
         const tools = await getAllH1dr4Tools();
-        const stream = this.h1dr4Client.chatStream(
-          this.messages,
-          tools,
-          undefined,
-          this.isH1dr4Model()
-            ? { search_parameters: { mode: "auto" } }
-            : undefined
+        await this.compressHistoryIfNeeded();
+        const { tokens, systemCount } = this.getPromptStats();
+        this.logDebug(
+          `promptTokens=${tokens} systemMessages=${systemCount} historyCount=${this.messages.length}`
         );
+        if (systemCount > 1) {
+          this.logDebug("System prompt duplication detected.");
+        }
+
+        const stream = this.llmProvider.chatStream(this.messages, tools);
         let accumulatedMessage: any = {};
         let accumulatedContent = "";
         let toolCallsYielded = false;
+        let firstTokenLogged = false;
 
         for await (const chunk of stream) {
           // Check for cancellation in the streaming loop
@@ -522,6 +689,12 @@ Current working directory: ${process.cwd()}`,
           // Stream content as it comes
           if (chunk.choices[0].delta?.content) {
             accumulatedContent += chunk.choices[0].delta.content;
+            if (!firstTokenLogged) {
+              this.logPerf(
+                `timeToFirstTokenMs=${Date.now() - requestStart}`
+              );
+              firstTokenLogged = true;
+            }
 
             // Update token count in real-time including accumulated content and any tool calls
             const currentOutputTokens =
@@ -547,6 +720,20 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Add assistant entry to history
+        if (!accumulatedMessage.tool_calls?.length) {
+          const parsedToolCalls = this.parseToolCallFromContent(
+            accumulatedMessage.content,
+            tools
+          );
+          if (parsedToolCalls) {
+            accumulatedMessage.tool_calls = parsedToolCalls;
+            accumulatedMessage.content = "";
+            this.logDebug("Tool call detected via JSON envelope.");
+          }
+        } else {
+          this.logDebug("Tool call detected via native tool calls.");
+        }
+
         const assistantEntry: ChatEntry = {
           type: "assistant",
           content: accumulatedMessage.content || "Using tools to help you...",
@@ -586,7 +773,11 @@ Current working directory: ${process.cwd()}`,
               return;
             }
 
+            const toolStart = Date.now();
             const result = await this.executeTool(toolCall);
+            this.logPerf(
+              `tool=${toolCall.function.name} durationMs=${Date.now() - toolStart}`
+            );
 
             const toolResultEntry: ChatEntry = {
               type: "tool_result",
@@ -663,6 +854,7 @@ Current working directory: ${process.cwd()}`,
       };
       yield { type: "done" };
     } finally {
+      this.logPerf(`totalResponseMs=${Date.now() - requestStart}`);
       // Clean up abort controller
       this.abortController = null;
     }
@@ -764,16 +956,12 @@ Current working directory: ${process.cwd()}`,
           });
 
         case "live_search":
-          const searchResponse = await this.h1dr4Client.search(
-            args.query,
-            args.search_parameters
-          );
-          return {
-            success: true,
-            output:
-              searchResponse.choices[0]?.message?.content ||
-              "No results returned",
-          };
+          return await this.liveSearch.search(args.query, {
+            search_parameters: args.search_parameters,
+            max_sources: args.max_sources,
+            citations: args.citations,
+            return_raw: args.return_raw,
+          });
 
         case "reason":
           const confirmation = await this.confirmationTool.requestConfirmation({
@@ -896,11 +1084,11 @@ Current working directory: ${process.cwd()}`,
   }
 
   getCurrentModel(): string {
-    return this.h1dr4Client.getCurrentModel();
+    return this.llmProvider.getCurrentModel();
   }
 
   setModel(model: string): void {
-    this.h1dr4Client.setModel(model);
+    this.llmProvider.setModel(model);
     // Update token counter for new model
     this.tokenCounter.dispose();
     this.tokenCounter = createTokenCounter(model);

@@ -7,8 +7,8 @@ import * as os from 'os';
  * These are global settings that apply across all projects
  */
 export interface UserSettings {
-  apiKey?: string;           // Grok API key
-  baseURL?: string;          // API base URL
+  apiKey?: string;           // Remote API key
+  baseURL?: string;          // Remote API base URL
   defaultModel?: string;     // User's preferred default model
   models?: string[];         // Available models list
 }
@@ -29,8 +29,9 @@ const DEFAULT_USER_SETTINGS: Partial<UserSettings> = {
   baseURL: "https://api.x.ai/v1",
   defaultModel: "grok-4-latest",
   models: [
+    "huihui_ai/qwen2.5-coder-abliterate:7b",
     "grok-4-latest",
-    "grok-3-latest", 
+    "grok-3-latest",
     "grok-3-fast",
     "grok-3-mini-fast"
   ]

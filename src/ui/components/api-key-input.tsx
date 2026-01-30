@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { H1dr4Agent } from "../../agent/h1dr4-agent";
 import { getSettingsManager } from "../../utils/settings-manager";
+import { DEFAULT_OLLAMA_HOST } from "../../utils/config";
 
 interface ApiKeyInputProps {
   onApiKeySet: (agent: H1dr4Agent) => void;
@@ -49,7 +50,17 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     setIsSubmitting(true);
     try {
       const apiKey = input.trim();
-      const agent = new H1dr4Agent(apiKey);
+      const manager = getSettingsManager();
+      const model =
+        process.env.H1DR4_MODEL || manager.getCurrentModel() || "grok-4-latest";
+      const agent = new H1dr4Agent({
+        provider: "remote",
+        apiKey,
+        baseURL: manager.getBaseURL(),
+        model,
+        ollamaHost: process.env.OLLAMA_HOST || DEFAULT_OLLAMA_HOST,
+        ollamaKeepAlive: process.env.OLLAMA_KEEP_ALIVE,
+      });
 
       // Set environment variable for current process
       process.env.GROK_API_KEY = apiKey;
@@ -77,9 +88,9 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Text color="yellow">🔑 Grok API Key Required</Text>
+      <Text color="yellow">🔑 Remote API Key Required</Text>
       <Box marginBottom={1}>
-        <Text color="gray">Please enter your Grok API key to continue:</Text>
+        <Text color="gray">Please enter your remote API key to continue:</Text>
       </Box>
       
       <Box borderStyle="round" borderColor="blue" paddingX={1} marginBottom={1}>

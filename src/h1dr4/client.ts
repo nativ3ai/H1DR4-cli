@@ -1,55 +1,14 @@
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat";
+import { LLMProvider } from "../providers/llm-provider";
+import {
+  H1dr4Message,
+  H1dr4Response,
+  H1dr4Tool,
+  SearchOptions,
+  SearchParameters,
+} from "./types";
 
-export type H1dr4Message = ChatCompletionMessageParam;
-
-export interface H1dr4Tool {
-  type: "function";
-  function: {
-    name: string;
-    description: string;
-    parameters: {
-      type: "object";
-      properties: Record<string, any>;
-      required: string[];
-    };
-  };
-}
-
-export interface H1dr4ToolCall {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
-  };
-}
-
-export interface SearchParameters {
-  mode?: "auto" | "on" | "off";
-  from_date?: string;
-  to_date?: string;
-  max_search_results?: number;
-  return_citations?: boolean;
-  // sources removed - let API use default sources to avoid format issues
-}
-
-export interface SearchOptions {
-  search_parameters?: SearchParameters;
-}
-
-export interface H1dr4Response {
-  choices: Array<{
-    message: {
-      role: string;
-      content: string | null;
-      tool_calls?: H1dr4ToolCall[];
-    };
-    finish_reason: string;
-  }>;
-}
-
-export class H1dr4Client {
+export class H1dr4Client implements LLMProvider {
   private client: OpenAI;
   private currentModel: string = "grok-3-latest";
 
@@ -166,3 +125,11 @@ export class H1dr4Client {
     return this.chat([searchMessage], [], undefined, searchOptions);
   }
 }
+
+export type {
+  H1dr4Message,
+  H1dr4Response,
+  H1dr4Tool,
+  SearchOptions,
+  SearchParameters,
+} from "./types";

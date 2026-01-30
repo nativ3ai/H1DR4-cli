@@ -133,6 +133,8 @@ const MemoizedChatEntry = React.memo(
               return "Bash";
             case "search":
               return "Search";
+            case "live_search":
+              return "Live Search";
             case "create_todo_list":
               return "Created Todo";
             case "update_todo_list":
@@ -149,7 +151,10 @@ const MemoizedChatEntry = React.memo(
           if (toolCall?.function?.arguments) {
             try {
               const args = JSON.parse(toolCall.function.arguments);
-              if (toolCall.function.name === "search") {
+              if (
+                toolCall.function.name === "search" ||
+                toolCall.function.name === "live_search"
+              ) {
                 return args.query;
               }
               return args.path || args.file_path || args.command || "";
