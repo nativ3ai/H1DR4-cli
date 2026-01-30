@@ -1,16 +1,17 @@
 # H1DR4 CLI
 
-A conversational AI CLI tool powered by H1DR4 with intelligent text editor capabilities and tool usage.
+A conversational AI CLI tool powered by local Ollama with intelligent text editor capabilities and tool usage.
 
 <img width="980" height="705" alt="H1DR4 CLI terminal screenshot" src="./saver.png" />
 
 ## Features
 
-- **🤖 Conversational AI**: Natural language interface powered by H1DR4
+- **🤖 Conversational AI**: Local-first interface powered by Ollama (with optional remote provider)
 - **📝 Smart File Operations**: AI automatically uses tools to view, create, and edit files
 - **⚡ Bash Integration**: Execute shell commands through natural conversation
 - **🔧 Automatic Tool Selection**: AI intelligently chooses the right tools for your requests
 - **🧠 Reasoning Engine**: Access a dedicated reasoning endpoint for complex questions
+- **🧭 Local Live Search**: Crawl and summarize web sources locally with citations (Crawl4AI + ScrapeGraphAI)
 - **🔍 OSINT Search**: Query public data sources using the `osint_search` tool (set `OSINT_TOKEN`)
 - **🚀 Morph Fast Apply**: Optional high-speed code editing at 4,500+ tokens/sec with 98% accuracy
 - **🔌 MCP Tools**: Extend capabilities with Model Context Protocol servers (Linear, GitHub, etc.)
@@ -24,7 +25,9 @@ to cancel the current run.
 
 ### Prerequisites
 - Node.js 16+
-- Grok API key from X.AI
+- [Ollama](https://ollama.com) installed and running locally (default provider)
+- Python 3.10+ with `crawl4ai` and `scrapegraphai` for live search
+- (Optional) Remote API key (Grok/OpenAI-compatible) if you use `--provider remote`
 - (Optional, Recommended) Morph API key for Fast Apply editing
 
 ### Global Installation (Recommended)
@@ -45,87 +48,56 @@ npm link
 
 ## Setup
 
-## Setup
+### 1. Run Ollama locally (default provider)
 
-### 1. Get your credentials
-
-You will need **a Grok API Key** (required) and optionally an **OSINT Access Token** (recommended for best experience).  
-
-There are **two ways** to get a Grok API Key:
-
-1. **Use your own** → [X.AI](https://x.ai) lets you create your own Grok API token and set your own usage limits.  
-2. **Use [H1DR4](h1dr4.dev)** → If you **hold ≥500k $H1DR4** or **stake ≥100k $H1DR4**, you can claim both:  
-   - A **rate-limited Grok API Key**  
-   - An **OSINT Access Token**  
-
-👉 To claim via H1DR4.dev/terminal, run (through the website):
+Start Ollama and pull the default model:
 
 ```bash
-balance
+ollama serve
+ollama pull closex/neuraldaredevil-8b-abliterated:Q6_K
 ```
-This will display your tokens directly.
 
-**2. Set up your grok API key (choose one method):**
+### 2. Install live search dependencies (Python)
 
-Set it as Environment Variable with:
+Live search uses Crawl4AI + ScrapeGraphAI locally:
 
 ```bash
+python3 -m pip install crawl4ai scrapegraphai
+```
+
+### 3. (Optional) Remote provider credentials
+
+If you prefer a remote provider, set:
+
+```bash
+export H1DR4_PROVIDER=remote
 export GROK_API_KEY=your_api_key_here
 ```
-or 
 
-```bash
-h1dr4 --api-key your_api_key_here
-```
+You can also pass `--provider remote --api-key ...` at runtime.
 
-### (Optional, Recommended)
+### 4. (Optional) OSINT access token
 
-**Set your OSINT TOKEN**
-*Note*: The CLI will work with just the Grok API Key, but adding the OSINT Access Token unlocks additional features and improves the overall experience.
+Set your OSINT token to enable `osint_search`:
 
--> get one either at:
-[Telegram](https://t.me/osintbotbot) -> siply click: menu -> api 
-
-or throught 
-
-[H1DR4](https://h1dr4.dev/terminal)
-<img width="980" height="570" alt="H1DR4 terminal screenshot" src="./osint_token.png" />
-
-**Environment Variable**
 ```bash
 export OSINT_TOKEN=your-h1dr4_osint-token
 ```
 
-### Get your Morph API key from [Morph Dashboard](https://morphllm.com/dashboard/api-keys)
-*Note*: For the best coding experience Morph is recomended
+### 5. (Optional) Morph API key
 
-**Set up your Morph API key for Fast Apply editing (choose one method):**
+Enable high-speed edits with Morph:
 
-**Environment Variable**
 ```bash
 export MORPH_API_KEY=your_morph_api_key_here
 ```
-### Custom Base URL (Optional)
 
-By default, the CLI uses `https://api.x.ai/v1` as the Grok API endpoint. You can configure a custom endpoint if needed (choose one method):
+### 6. Custom base URL (remote provider only)
 
-Method 1: Environment Variable
+By default, the CLI uses `https://api.x.ai/v1` for the remote provider.
+
 ```bash
 export GROK_BASE_URL=https://your-custom-endpoint.com/v1
-```
-
-Method 2: Command Line Flag
-```bash
-h1dr4 --api-key your_api_key_here --base-url https://your-custom-endpoint.com/v1
-```
-
-Method 3: User Settings File
-Add to `~/.h1dr4/user-settings.json`:
-```json
-{
-  "apiKey": "your_api_key_here",
-  "baseURL": "https://your-custom-endpoint.com/v1"
-}
 ```
 
 ## Usage
@@ -179,30 +151,51 @@ h1dr4 git commit-and-push --max-tool-rounds 30  # Git commands
 - **Complex automation**: Higher limits (500+) for comprehensive tasks
 - **Resource control**: Prevent runaway executions in automated environments
 
+### Local Live Search
+
+Live search runs locally using Crawl4AI + ScrapeGraphAI and returns citations.
+
+```bash
+h1dr4 --prompt "latest on EU AI Act enforcement" --live-search on
+```
+
+Environment tuning:
+
+```bash
+export H1DR4_LIVE_SEARCH=on
+export H1DR4_MAX_SOURCES=5
+export H1DR4_CITATIONS=on
+export LIVESEARCH_CACHE_TTL=86400000
+```
+
+Force local-only mode (no remote calls):
+
+```bash
+export LOCAL_ONLY=true
+```
+
 ### Model Selection
 
-You can specify which AI model to use with the `--model` parameter or `H1DR4_MODEL` environment variable:
+You can specify which AI model to use with the `--model` parameter or environment variables:
 
 **Method 1: Command Line Flag**
 ```bash
-# Use H1DR4 models
-h1dr4 --model grok-4-latest
-h1dr4 --model grok-3-latest
-h1dr4 --model grok-3-fast
+# Local Ollama model
+h1dr4 --provider ollama --model closex/neuraldaredevil-8b-abliterated:Q6_K
 
-# Use other models (with appropriate API endpoint)
-h1dr4 --model gemini-2.5-pro --base-url https://api-endpoint.com/v1
-h1dr4 --model claude-sonnet-4-20250514 --base-url https://api-endpoint.com/v1
+# Remote models (with appropriate API endpoint)
+h1dr4 --provider remote --model grok-4-latest
+h1dr4 --provider remote --model gemini-2.5-pro --base-url https://api-endpoint.com/v1
 ```
 
 **Method 2: Environment Variable**
 ```bash
-export H1DR4_MODEL=grok-4-latest
-export OSINT_TOKEN=your_osint_token_here
+export OLLAMA_MODEL=closex/neuraldaredevil-8b-abliterated:Q6_K
+export H1DR4_PROVIDER=ollama
 h1dr4
 ```
 
-**Method 3: User Settings File**
+**Method 3: User Settings File (remote provider)**
 Add to `~/.h1dr4/user-settings.json`:
 ```json
 {
@@ -211,7 +204,7 @@ Add to `~/.h1dr4/user-settings.json`:
 }
 ```
 
-**Model Priority**: `--model` flag > `H1DR4_MODEL` environment variable > user default model > system default (grok-4-latest)
+**Model Priority**: `--model` flag > `OLLAMA_MODEL`/`H1DR4_MODEL` > user default model > system default
 
 ### Command Line Options
 
@@ -221,9 +214,14 @@ h1dr4 [options]
 Options:
   -V, --version          output the version number
   -d, --directory <dir>  set working directory
-  -k, --api-key <key>    Grok API key (or set GROK_API_KEY env var)
-  -u, --base-url <url>   Grok API base URL (or set GROK_BASE_URL env var)
-  -m, --model <model>    AI model to use (e.g., grok-4-latest, grok-3-latest) (or set H1DR4_MODEL env var)
+  -k, --api-key <key>    API key for remote provider (or set GROK_API_KEY env var)
+  -u, --base-url <url>   Remote API base URL (or set GROK_BASE_URL env var)
+  --provider <provider>  LLM provider to use (ollama|remote) (default: ollama)
+  -m, --model <model>    AI model to use (or set H1DR4_MODEL/OLLAMA_MODEL env var)
+  --local-only           Forbid remote provider usage (or set LOCAL_ONLY=true)
+  --live-search <mode>   Enable live search (on|off) (default: on)
+  --max-sources <n>      Maximum live search sources (default: 5)
+  --citations <mode>     Include citations in live search (on|off) (default: on)
   -p, --prompt <prompt>  process a single prompt and exit (headless mode)
   --max-tool-rounds <rounds>  maximum number of tool execution rounds (default: 400)
   -h, --help             display help for command
@@ -236,9 +234,9 @@ H1DR4 CLI uses two types of configuration files to manage settings:
 
 ### User-Level Settings (`~/.h1dr4/user-settings.json`)
 
-This file stores **global settings** that apply across all projects. These settings rarely change and include:
+This file stores **global settings** that apply across all projects. These settings rarely change and include (primarily for the remote provider):
 
-- **API Key**: Your Grok API key
+- **API Key**: Your remote provider API key
 - **Base URL**: Custom API endpoint (if needed)
 - **Default Model**: Your preferred model (e.g., `grok-4-latest`)
 - **Available Models**: List of models you can use
@@ -291,7 +289,7 @@ This means you can have different models for different projects while maintainin
 
 ### Using Other API Providers
 
-**Important**: H1DR4 CLI uses **OpenAI-compatible APIs**. You can use any provider that implements the OpenAI chat completions standard.
+**Important**: H1DR4 CLI uses **OpenAI-compatible APIs** for the `remote` provider. You can use any provider that implements the OpenAI chat completions standard by setting `--provider remote`.
 
 **Popular Providers**:
 - **X.AI**: `https://api.x.ai/v1` (default)
@@ -518,6 +516,27 @@ h1dr4 mcp enable server-name
 # Remove a server
 h1dr4 mcp remove server-name
 ```
+
+## Smoke Test (Local Ollama + Live Search)
+
+```bash
+./scripts/smoke-live-search.sh
+```
+
+## Troubleshooting
+
+**Ollama not responding**
+- Ensure `ollama serve` is running.
+- Verify `OLLAMA_HOST` matches your local Ollama address.
+
+**Live search fails or returns empty results**
+- Confirm Python dependencies are installed: `python3 -m pip install crawl4ai scrapegraphai`.
+- Some sites block automated crawlers; reduce `H1DR4_MAX_SOURCES` or retry later.
+- Check cache settings in `~/.h1dr4/live-search-cache` and adjust `LIVESEARCH_CACHE_TTL`.
+
+**Model too slow**
+- Use a smaller local model with `--model` and/or increase `OLLAMA_KEEP_ALIVE`.
+- Reduce tool rounds with `--max-tool-rounds` for faster responses.
 
 ### Available Transport Types
 
