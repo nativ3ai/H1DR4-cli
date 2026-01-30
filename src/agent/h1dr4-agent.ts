@@ -142,7 +142,7 @@ You have access to these tools:
 - update_todo_list: Update existing todos in your todo list
 - osint_search: Perform OSINT leak retrieval for defined entities like email addresses, phone numbers, usernames, or domains
 - gdelt_query: Query the GDELT proxy for conflict levels, country risk, bilateral relations, high-impact or economic events, BBVA-style bilateral conflict coverage, custom date searches, and keyword context retrieval (supports /gdelt and /gdelt/v2 with daily granularity options)
-- live_search: Search the live web with DuckDuckGo and optionally fetch pages with citations
+- live_search: Search the live web with ScrapeGraphAI + Crawl4AI (DuckDuckGo fallback) and optionally fetch pages with citations
 - shannon: Run Shannon's autonomous pentesting CLI workflows (start, logs, query, stop)
 - reason: Use a dedicated reasoning model for predictions, market or geopolitical analysis, strategic planning, and other complex questions
 
@@ -164,7 +164,7 @@ REASONING WORKER BEST PRACTICES:
 - Ineffective queries are vague, lack context, or are single words
 
 REAL-TIME INFORMATION:
- Use the live_search tool to query the web via DuckDuckGo and fetch readable page excerpts.
+ Use the live_search tool to query the web via ScrapeGraphAI + Crawl4AI and fetch readable page excerpts.
  When using live_search, cite sources using the returned citations array.
  Prefer short excerpts; do not paste entire articles.
  Prefer live_search for current events instead of the reasoning tool.
@@ -1056,6 +1056,113 @@ You can call tools for web search and charting.`,
     message: string,
     tools: H1dr4Tool[]
   ): Promise<H1dr4ToolCall | null> {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      return null;
+    }
+
+    const lowerMessage = trimmedMessage.toLowerCase();
+    const wordCount = trimmedMessage.split(/\s+/).filter(Boolean).length;
+    const shellCommandVerbs = [
+      "ls",
+      "pwd",
+      "cat",
+      "cd",
+      "mkdir",
+      "rm",
+      "cp",
+      "mv",
+      "rg",
+      "grep",
+      "find",
+      "git",
+      "npm",
+      "yarn",
+      "pnpm",
+      "node",
+      "python",
+      "bash",
+      "sh",
+      "chmod",
+      "curl",
+      "wget",
+    ];
+    const firstToken = trimmedMessage.split(/\s+/)[0]?.toLowerCase() ?? "";
+    const isExplicitBash =
+      firstToken.startsWith("!") ||
+      trimmedMessage.startsWith("$ ") ||
+      shellCommandVerbs.includes(firstToken);
+
+    if (isExplicitBash) {
+      const command = trimmedMessage.startsWith("!")
+        ? trimmedMessage.slice(1).trim()
+        : trimmedMessage.replace(/^\$\s*/, "");
+      return {
+        id: `heuristic-${Date.now()}`,
+        type: "function",
+        function: {
+          name: "bash",
+          arguments: JSON.stringify({ command }),
+        },
+      };
+    }
+    const toolKeywords = [
+      "search",
+      "find",
+      "lookup",
+      "web",
+      "online",
+      "news",
+      "latest",
+      "today",
+      "headline",
+      "current events",
+      "breaking",
+      "browse",
+      "fetch",
+      "open",
+      "file",
+      "directory",
+      "read",
+      "edit",
+      "update",
+      "create",
+      "run",
+      "execute",
+      "bash",
+    ];
+
+    const isGreeting =
+      wordCount <= 6 &&
+      !toolKeywords.some((keyword) => lowerMessage.includes(keyword));
+
+    if (isGreeting) {
+      return null;
+    }
+
+    const isNewsQuery = [
+      "news",
+      "latest",
+      "today",
+      "headline",
+      "headlines",
+      "breaking",
+      "current events",
+      "what's new",
+      "whats new",
+    ].some((keyword) => lowerMessage.includes(keyword));
+
+    if (isNewsQuery) {
+      return {
+        id: `heuristic-${Date.now()}`,
+        type: "function",
+        function: {
+          name: "live_search",
+          arguments: JSON.stringify({ query: trimmedMessage, mode: "robust" }),
+        },
+      };
+    }
+
     if (tools.length === 0) {
       return null;
     }

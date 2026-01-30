@@ -326,7 +326,7 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     function: {
       name: "live_search",
       description:
-        "Search the live web via DuckDuckGo, optionally fetch pages, and return citations + excerpts",
+        "Search the live web via ScrapeGraphAI + Crawl4AI (with DuckDuckGo fallback), optionally fetch pages, and return citations + excerpts",
       parameters: {
         type: "object",
         properties: {
@@ -354,6 +354,12 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
             type: "string",
             enum: ["on", "moderate", "off"],
             description: "Safe search setting (default: moderate)",
+          },
+          mode: {
+            type: "string",
+            enum: ["fast", "robust"],
+            description:
+              "Search mode: 'fast' for quick DuckDuckGo scrape, 'robust' for ScrapeGraphAI + Crawl4AI when available",
           },
         },
         required: ["query"],

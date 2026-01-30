@@ -9,6 +9,9 @@ interface ChatHistoryProps {
   isConfirmationActive?: boolean;
 }
 
+const MAX_TOOL_CONTENT_CHARS = 320;
+const MAX_TOOL_CONTENT_LINES = 6;
+
 // Memoized ChatEntry component to prevent unnecessary re-renders
 const MemoizedChatEntry = React.memo(
   ({ entry, index }: { entry: ChatEntry; index: number }) => {
@@ -76,6 +79,42 @@ const MemoizedChatEntry = React.memo(
       return <Text>{image}</Text>;
     };
 
+    const clampContent = (content: string) => {
+      if (!content) return content;
+      const lines = content.split("\n");
+      let trimmed = lines.slice(0, MAX_TOOL_CONTENT_LINES).join("\n");
+      if (lines.length > MAX_TOOL_CONTENT_LINES) {
+        trimmed = `${trimmed}\n… (+${lines.length - MAX_TOOL_CONTENT_LINES} more lines)`;
+      }
+      if (trimmed.length > MAX_TOOL_CONTENT_CHARS) {
+        trimmed = `${trimmed.slice(0, MAX_TOOL_CONTENT_CHARS)}… (+${
+          trimmed.length - MAX_TOOL_CONTENT_CHARS
+        } chars)`;
+      }
+      return trimmed;
+    };
+
+    const summarizeLiveSearch = (content: string) => {
+      try {
+        const parsed = JSON.parse(content);
+        const results = parsed?.results ?? [];
+        const query = parsed?.query ? ` for "${parsed.query}"` : "";
+        const top = results
+          .slice(0, 3)
+          .map((result: any, idx: number) => {
+            const title = result?.title || result?.url || "Result";
+            const url = result?.url ? ` — ${result.url}` : "";
+            return `${idx + 1}. ${title}${url}`;
+          })
+          .join(" | ");
+        return `Found ${results.length} results${query}${
+          top ? `: ${top}` : ""
+        }`;
+      } catch {
+        return clampContent(content);
+      }
+    };
+
     switch (entry.type) {
       case "user":
         return (
@@ -133,6 +172,8 @@ const MemoizedChatEntry = React.memo(
               return "Bash";
             case "search":
               return "Search";
+            case "live_search":
+              return "Web Search";
             case "create_todo_list":
               return "Created Todo";
             case "update_todo_list":
@@ -152,6 +193,9 @@ const MemoizedChatEntry = React.memo(
               if (toolCall.function.name === "search") {
                 return args.query;
               }
+              if (toolCall.function.name === "live_search") {
+                return args.query;
+              }
               return args.path || args.file_path || args.command || "";
             } catch {
               return "";
@@ -165,6 +209,9 @@ const MemoizedChatEntry = React.memo(
         
         // Format JSON content for better readability
         const formatToolContent = (content: string, toolName: string) => {
+          if (toolName === "live_search") {
+            return summarizeLiveSearch(content);
+          }
           if (toolName.startsWith("mcp__")) {
             try {
               // Try to parse as JSON and format it
@@ -172,16 +219,16 @@ const MemoizedChatEntry = React.memo(
               if (Array.isArray(parsed)) {
                 // For arrays, show a summary instead of full JSON
                 return `Found ${parsed.length} items`;
-              } else if (typeof parsed === 'object') {
+              } else if (typeof parsed === "object") {
                 // For objects, show a formatted version
-                return JSON.stringify(parsed, null, 2);
+                return clampContent(JSON.stringify(parsed, null, 2));
               }
             } catch {
               // If not JSON, return as is
-              return content;
+              return clampContent(content);
             }
           }
-          return content;
+          return clampContent(content);
         };
         const shouldShowDiff =
           entry.toolCall?.function?.name === "str_replace_editor" &&
