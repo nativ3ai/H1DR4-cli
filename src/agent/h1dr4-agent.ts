@@ -292,6 +292,18 @@ You can call tools for web search and charting.`,
           throw new Error("No response from H1dr4");
         }
 
+        const fallbackToolCalls = this.extractToolCallsFromContent(
+          assistantMessage.content
+        );
+        if (
+          (!assistantMessage.tool_calls ||
+            assistantMessage.tool_calls.length === 0) &&
+          fallbackToolCalls.length > 0
+        ) {
+          assistantMessage.tool_calls = fallbackToolCalls;
+          assistantMessage.content = "";
+        }
+
         // Handle tool calls
         if (
           assistantMessage.tool_calls &&
@@ -556,6 +568,18 @@ You can call tools for web search and charting.`,
               tokenCount: inputTokens + totalOutputTokens,
             };
           }
+        }
+
+        const fallbackToolCalls = this.extractToolCallsFromContent(
+          accumulatedMessage.content
+        );
+        if (
+          (!accumulatedMessage.tool_calls ||
+            accumulatedMessage.tool_calls.length === 0) &&
+          fallbackToolCalls.length > 0
+        ) {
+          accumulatedMessage.tool_calls = fallbackToolCalls;
+          accumulatedMessage.content = "";
         }
 
         // Add assistant entry to history
@@ -892,6 +916,46 @@ You can call tools for web search and charting.`,
         success: false,
         error: `MCP tool execution error: ${error.message}`,
       };
+    }
+  }
+
+  private extractToolCallsFromContent(content?: string | null): H1dr4ToolCall[] {
+    if (!content) {
+      return [];
+    }
+
+    const trimmed = content.trim();
+    const jsonMatch =
+      trimmed.startsWith("{") && trimmed.endsWith("}")
+        ? trimmed
+        : trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1]?.trim() ||
+          trimmed.match(/```([\s\S]*?)```/i)?.[1]?.trim();
+
+    if (!jsonMatch) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(jsonMatch);
+      if (!parsed || !parsed.name) {
+        return [];
+      }
+      const args =
+        typeof parsed.arguments === "string"
+          ? parsed.arguments
+          : JSON.stringify(parsed.arguments ?? {});
+      return [
+        {
+          id: `fallback-${Date.now()}`,
+          type: "function",
+          function: {
+            name: parsed.name,
+            arguments: args,
+          },
+        },
+      ];
+    } catch {
+      return [];
     }
   }
 
