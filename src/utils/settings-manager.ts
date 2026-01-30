@@ -29,9 +29,9 @@ const DEFAULT_USER_SETTINGS: Partial<UserSettings> = {
   baseURL: "https://api.x.ai/v1",
   defaultModel: "grok-4-latest",
   models: [
-    "closex/neuraldaredevil-8b-abliterated:Q6_K",
+    "huihui_ai/qwen2.5-coder-abliterate:7b",
     "grok-4-latest",
-    "grok-3-latest", 
+    "grok-3-latest",
     "grok-3-fast",
     "grok-3-mini-fast"
   ]

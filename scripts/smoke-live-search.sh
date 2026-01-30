@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${OLLAMA_MODEL:-closex/neuraldaredevil-8b-abliterated:Q6_K}"
+MODEL="${OLLAMA_MODEL:-huihui_ai/qwen2.5-coder-abliterate:7b}"
 HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 
 echo "Checking Ollama at ${HOST}..."

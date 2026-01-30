@@ -54,7 +54,7 @@ Start Ollama and pull the default model:
 
 ```bash
 ollama serve
-ollama pull closex/neuraldaredevil-8b-abliterated:Q6_K
+ollama pull huihui_ai/qwen2.5-coder-abliterate:7b
 ```
 
 ### 2. Install live search dependencies (Python)
@@ -174,6 +174,21 @@ Force local-only mode (no remote calls):
 export LOCAL_ONLY=true
 ```
 
+### Performance Guardrails & Debugging
+
+Limit prompt growth (older history is summarized automatically):
+
+```bash
+export H1DR4_MAX_HISTORY=20
+export H1DR4_MAX_HISTORY_TOKENS=4000
+```
+
+Enable performance logs:
+
+```bash
+h1dr4 --debug-perf --prompt "summarize the repo structure"
+```
+
 ### Model Selection
 
 You can specify which AI model to use with the `--model` parameter or environment variables:
@@ -181,7 +196,7 @@ You can specify which AI model to use with the `--model` parameter or environmen
 **Method 1: Command Line Flag**
 ```bash
 # Local Ollama model
-h1dr4 --provider ollama --model closex/neuraldaredevil-8b-abliterated:Q6_K
+h1dr4 --provider ollama --model huihui_ai/qwen2.5-coder-abliterate:7b
 
 # Remote models (with appropriate API endpoint)
 h1dr4 --provider remote --model grok-4-latest
@@ -190,7 +205,7 @@ h1dr4 --provider remote --model gemini-2.5-pro --base-url https://api-endpoint.c
 
 **Method 2: Environment Variable**
 ```bash
-export OLLAMA_MODEL=closex/neuraldaredevil-8b-abliterated:Q6_K
+export OLLAMA_MODEL=huihui_ai/qwen2.5-coder-abliterate:7b
 export H1DR4_PROVIDER=ollama
 h1dr4
 ```
@@ -222,6 +237,10 @@ Options:
   --live-search <mode>   Enable live search (on|off) (default: on)
   --max-sources <n>      Maximum live search sources (default: 5)
   --citations <mode>     Include citations in live search (on|off) (default: on)
+  --max-history <count>  Maximum recent messages before summarizing
+  --max-history-tokens <count>  Maximum prompt tokens before summarizing
+  --debug               Enable debug logging
+  --debug-perf          Enable performance profiling logs
   -p, --prompt <prompt>  process a single prompt and exit (headless mode)
   --max-tool-rounds <rounds>  maximum number of tool execution rounds (default: 400)
   -h, --help             display help for command

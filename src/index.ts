@@ -21,6 +21,8 @@ import os from "os";
 import {
   DEFAULT_OLLAMA_HOST,
   DEFAULT_OLLAMA_MODEL,
+  DEFAULT_MAX_HISTORY_MESSAGES,
+  DEFAULT_MAX_HISTORY_TOKENS,
   parseBoolean,
   parseNumber,
   resolveProvider,
@@ -168,6 +170,10 @@ function resolveAgentConfig(options: {
   maxSources?: string;
   citations?: string;
   maxToolRounds?: string;
+  maxHistory?: string;
+  maxHistoryTokens?: string;
+  debug?: boolean;
+  debugPerf?: boolean;
 }) {
   const provider = resolveProvider(
     options.provider || process.env.H1DR4_PROVIDER
@@ -193,12 +199,32 @@ function resolveAgentConfig(options: {
     options.citations || process.env.H1DR4_CITATIONS,
     true
   );
+  const maxHistoryMessages = parseNumber(
+    options.maxHistory || process.env.H1DR4_MAX_HISTORY,
+    DEFAULT_MAX_HISTORY_MESSAGES
+  );
+  const maxHistoryTokens = parseNumber(
+    options.maxHistoryTokens || process.env.H1DR4_MAX_HISTORY_TOKENS,
+    DEFAULT_MAX_HISTORY_TOKENS
+  );
+  const debug = parseBoolean(
+    options.debug ?? process.env.H1DR4_DEBUG,
+    false
+  );
+  const debugPerf = parseBoolean(
+    options.debugPerf ?? process.env.H1DR4_DEBUG_PERF,
+    false
+  );
 
   return {
     provider,
     localOnly,
     model,
     maxToolRounds,
+    maxHistoryMessages,
+    maxHistoryTokens,
+    debug,
+    debugPerf,
     apiKey: options.apiKey || (provider === "remote" ? loadApiKey() : undefined),
     baseURL: options.baseUrl || loadBaseURL(),
     ollamaHost: process.env.OLLAMA_HOST || DEFAULT_OLLAMA_HOST,
@@ -424,7 +450,7 @@ program
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., closex/neuraldaredevil-8b-abliterated:Q6_K, grok-4-latest) (or set H1DR4_MODEL/OLLAMA_MODEL env var)"
+    "AI model to use (e.g., huihui_ai/qwen2.5-coder-abliterate:7b, grok-4-latest) (or set H1DR4_MODEL/OLLAMA_MODEL env var)"
   )
   .option(
     "--local-only",
@@ -451,6 +477,16 @@ program
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "--max-history <count>",
+    "maximum number of recent messages to keep before summarizing"
+  )
+  .option(
+    "--max-history-tokens <count>",
+    "maximum prompt tokens before summarizing history"
+  )
+  .option("--debug", "enable debug logging")
+  .option("--debug-perf", "enable performance profiling logs")
   .action(async (options) => {
     if (options.directory) {
       try {
@@ -530,7 +566,7 @@ gitCommand
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., closex/neuraldaredevil-8b-abliterated:Q6_K, grok-4-latest) (or set H1DR4_MODEL/OLLAMA_MODEL env var)"
+    "AI model to use (e.g., huihui_ai/qwen2.5-coder-abliterate:7b, grok-4-latest) (or set H1DR4_MODEL/OLLAMA_MODEL env var)"
   )
   .option(
     "--local-only",
@@ -553,6 +589,16 @@ gitCommand
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "--max-history <count>",
+    "maximum number of recent messages to keep before summarizing"
+  )
+  .option(
+    "--max-history-tokens <count>",
+    "maximum prompt tokens before summarizing history"
+  )
+  .option("--debug", "enable debug logging")
+  .option("--debug-perf", "enable performance profiling logs")
   .action(async (options) => {
     if (options.directory) {
       try {

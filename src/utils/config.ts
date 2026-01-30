@@ -2,7 +2,7 @@ import { ProviderName } from "../providers/provider-factory";
 
 export const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
 export const DEFAULT_OLLAMA_MODEL =
-  "closex/neuraldaredevil-8b-abliterated:Q6_K";
+  "huihui_ai/qwen2.5-coder-abliterate:7b";
 
 export const DEFAULT_LIVESEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_LIVESEARCH_MAX_SOURCES = 5;
@@ -10,6 +10,8 @@ export const DEFAULT_LIVESEARCH_CONCURRENCY = 2;
 export const DEFAULT_LIVESEARCH_PER_DOMAIN_DELAY_MS = 1000;
 export const DEFAULT_LIVESEARCH_TIMEOUT_MS = 45000;
 export const DEFAULT_LIVESEARCH_MAX_CONTENT_BYTES = 2 * 1024 * 1024;
+export const DEFAULT_MAX_HISTORY_MESSAGES = 20;
+export const DEFAULT_MAX_HISTORY_TOKENS = 4000;
 
 export function parseBoolean(
   value: string | boolean | undefined,

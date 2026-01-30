@@ -21,6 +21,7 @@ import {
 } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
+import { randomUUID } from "crypto";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
 import { loadCustomInstructions } from "../utils/custom-instructions";
 
@@ -33,6 +34,10 @@ export interface AgentConfig {
   ollamaKeepAlive?: string;
   localOnly?: boolean;
   maxToolRounds?: number;
+  maxHistoryMessages?: number;
+  maxHistoryTokens?: number;
+  debug?: boolean;
+  debugPerf?: boolean;
   liveSearchEnabled?: boolean;
   maxSources?: number;
   citations?: boolean;
@@ -75,11 +80,19 @@ export class H1dr4Agent extends EventEmitter {
   private abortController: AbortController | null = null;
   private mcpInitialized: boolean = false;
   private maxToolRounds: number;
+  private maxHistoryMessages: number;
+  private maxHistoryTokens: number;
+  private debug: boolean;
+  private debugPerf: boolean;
 
   constructor(config: AgentConfig) {
     super();
     const modelToUse = config.model;
     this.maxToolRounds = config.maxToolRounds || 400;
+    this.maxHistoryMessages = config.maxHistoryMessages || 20;
+    this.maxHistoryTokens = config.maxHistoryTokens || 4000;
+    this.debug = config.debug || false;
+    this.debugPerf = config.debugPerf || false;
     this.llmProvider = createProvider({
       provider: config.provider,
       apiKey: config.apiKey,
@@ -169,6 +182,12 @@ LIVE SEARCH (LOCAL):
  Prefer live_search for current events or up-to-the-minute data instead of the reasoning tool.
  This capability is independent from the reasoning worker and does not require user confirmation.
 
+TOOL USE POLICY:
+- When the user asks you to perform an action that maps to a tool, CALL THE TOOL directly.
+- Do NOT instruct the user to run tools or print tool JSON without executing it.
+- If you need to call a tool and native tool calls are unavailable, respond with ONLY a single JSON object:
+  {"tool":"tool_name","args":{...}}
+
  IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
 - ALWAYS use str_replace_editor to modify existing files, even for small changes
@@ -253,12 +272,119 @@ Current working directory: ${process.cwd()}`,
     });
   }
 
+  private logDebug(message: string): void {
+    if (this.debug) {
+      console.log(`[debug] ${message}`);
+    }
+  }
+
+  private logPerf(message: string): void {
+    if (this.debugPerf) {
+      console.log(`[perf] ${message}`);
+    }
+  }
+
+  private getPromptStats(): { tokens: number; systemCount: number } {
+    const tokens = this.tokenCounter.countMessageTokens(this.messages as any);
+    const systemCount = this.messages.filter((msg) => msg.role === "system")
+      .length;
+    return { tokens, systemCount };
+  }
+
+  private stripCodeFences(content: string): string {
+    const trimmed = content.trim();
+    if (trimmed.startsWith("```")) {
+      return trimmed.replace(/^```(?:json)?\n?/i, "").replace(/```$/, "").trim();
+    }
+    return trimmed;
+  }
+
+  private parseToolCallFromContent(
+    content: string | null,
+    tools: Awaited<ReturnType<typeof getAllH1dr4Tools>>
+  ): H1dr4ToolCall[] | null {
+    if (!content) return null;
+    const cleaned = this.stripCodeFences(content);
+    if (!cleaned.startsWith("{") || !cleaned.includes('"tool"')) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(cleaned) as { tool?: string; args?: any };
+      if (!parsed.tool) return null;
+      const known = tools.some((tool) => tool.function.name === parsed.tool);
+      if (!known) return null;
+      return [
+        {
+          id: randomUUID(),
+          type: "function",
+          function: {
+            name: parsed.tool,
+            arguments: JSON.stringify(parsed.args ?? {}),
+          },
+        },
+      ];
+    } catch {
+      return null;
+    }
+  }
+
+  private async compressHistoryIfNeeded(): Promise<void> {
+    const { tokens } = this.getPromptStats();
+    if (
+      this.messages.length <= this.maxHistoryMessages &&
+      tokens <= this.maxHistoryTokens
+    ) {
+      return;
+    }
+
+    const systemMessage = this.messages.find((msg) => msg.role === "system");
+    const nonSystemMessages = this.messages.filter(
+      (msg) => msg.role !== "system"
+    );
+    const keepTail = nonSystemMessages.slice(-10);
+    const toSummarize = nonSystemMessages.slice(0, -10);
+
+    if (toSummarize.length === 0) {
+      return;
+    }
+
+    this.logDebug(
+      `Summarizing history: ${toSummarize.length} messages, tokens=${tokens}`
+    );
+
+    const summaryPrompt = `Summarize the prior conversation in 6-10 bullet points. Focus on decisions, tool outputs, and user intent.`;
+    const response = await this.llmProvider.chat([
+      { role: "system", content: summaryPrompt },
+      {
+        role: "user",
+        content: toSummarize
+          .map((msg) => `${msg.role.toUpperCase()}: ${msg.content || ""}`)
+          .join("\n"),
+      },
+    ]);
+    const summaryContent =
+      response.choices[0]?.message?.content?.trim() ||
+      "Summary unavailable.";
+
+    const summaryMessage: H1dr4Message = {
+      role: "assistant",
+      content: `[Conversation summary]\n${summaryContent}`,
+    };
+
+    this.messages = [
+      ...(systemMessage ? [systemMessage] : []),
+      summaryMessage,
+      ...keepTail,
+    ];
+  }
+
   private addChatEntry(entry: ChatEntry): void {
     this.chatHistory.push(entry);
     this.emit("chat_entry", entry);
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
+    const requestStart = Date.now();
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
@@ -275,6 +401,15 @@ Current working directory: ${process.cwd()}`,
 
     try {
       const tools = await getAllH1dr4Tools();
+      await this.compressHistoryIfNeeded();
+      const { tokens, systemCount } = this.getPromptStats();
+      this.logDebug(
+        `promptTokens=${tokens} systemMessages=${systemCount} historyCount=${this.messages.length}`
+      );
+      if (systemCount > 1) {
+        this.logDebug("System prompt duplication detected.");
+      }
+
       let currentResponse = await this.llmProvider.chat(this.messages, tools);
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -285,19 +420,32 @@ Current working directory: ${process.cwd()}`,
           throw new Error("No response from LLM provider");
         }
 
+        const parsedToolCalls =
+          assistantMessage.tool_calls ||
+          this.parseToolCallFromContent(assistantMessage.content, tools);
+        if (assistantMessage.tool_calls?.length) {
+          this.logDebug("Tool call detected via native tool calls.");
+        } else if (parsedToolCalls) {
+          this.logDebug("Tool call detected via JSON envelope.");
+        }
+        const assistantContent =
+          parsedToolCalls && !assistantMessage.tool_calls
+            ? ""
+            : assistantMessage.content || "";
+
         // Handle tool calls
         if (
-          assistantMessage.tool_calls &&
-          assistantMessage.tool_calls.length > 0
+          parsedToolCalls &&
+          parsedToolCalls.length > 0
         ) {
           toolRounds++;
 
           // Add assistant message with tool calls
           const assistantEntry: ChatEntry = {
             type: "assistant",
-            content: assistantMessage.content || "Using tools to help you...",
+            content: assistantContent || "Using tools to help you...",
             timestamp: new Date(),
-            toolCalls: assistantMessage.tool_calls,
+            toolCalls: parsedToolCalls,
           };
           this.chatHistory.push(assistantEntry);
           newEntries.push(assistantEntry);
@@ -305,12 +453,12 @@ Current working directory: ${process.cwd()}`,
           // Add assistant message to conversation
           this.messages.push({
             role: "assistant",
-            content: assistantMessage.content || "",
-            tool_calls: assistantMessage.tool_calls,
+            content: assistantContent,
+            tool_calls: parsedToolCalls,
           } as any);
 
           // Create initial tool call entries to show tools are being executed
-          assistantMessage.tool_calls.forEach((toolCall) => {
+          parsedToolCalls.forEach((toolCall) => {
             const toolCallEntry: ChatEntry = {
               type: "tool_call",
               content: "Executing...",
@@ -322,8 +470,12 @@ Current working directory: ${process.cwd()}`,
           });
 
           // Execute tool calls and update the entries
-          for (const toolCall of assistantMessage.tool_calls) {
+          for (const toolCall of parsedToolCalls) {
+            const toolStart = Date.now();
             const result = await this.executeTool(toolCall);
+            this.logPerf(
+              `tool=${toolCall.function.name} durationMs=${Date.now() - toolStart}`
+            );
 
             // Update the existing tool_call entry with the result
             const entryIndex = this.chatHistory.findIndex(
@@ -364,6 +516,11 @@ Current working directory: ${process.cwd()}`,
           }
 
           // Get next response - this might contain more tool calls
+          await this.compressHistoryIfNeeded();
+          const stats = this.getPromptStats();
+          this.logDebug(
+            `promptTokens=${stats.tokens} systemMessages=${stats.systemCount} historyCount=${this.messages.length}`
+          );
           currentResponse = await this.llmProvider.chat(this.messages, tools);
         } else {
           // No more tool calls, add final response
@@ -404,6 +561,8 @@ Current working directory: ${process.cwd()}`,
       };
       this.chatHistory.push(errorEntry);
       return [userEntry, errorEntry];
+    } finally {
+      this.logPerf(`totalResponseMs=${Date.now() - requestStart}`);
     }
   }
 
@@ -440,6 +599,7 @@ Current working directory: ${process.cwd()}`,
   async *processUserMessageStream(
     message: string
   ): AsyncGenerator<StreamingChunk, void, unknown> {
+    const requestStart = Date.now();
     // Create new abort controller for this request
     this.abortController = new AbortController();
 
@@ -480,10 +640,20 @@ Current working directory: ${process.cwd()}`,
 
         // Stream response and accumulate
         const tools = await getAllH1dr4Tools();
+        await this.compressHistoryIfNeeded();
+        const { tokens, systemCount } = this.getPromptStats();
+        this.logDebug(
+          `promptTokens=${tokens} systemMessages=${systemCount} historyCount=${this.messages.length}`
+        );
+        if (systemCount > 1) {
+          this.logDebug("System prompt duplication detected.");
+        }
+
         const stream = this.llmProvider.chatStream(this.messages, tools);
         let accumulatedMessage: any = {};
         let accumulatedContent = "";
         let toolCallsYielded = false;
+        let firstTokenLogged = false;
 
         for await (const chunk of stream) {
           // Check for cancellation in the streaming loop
@@ -519,6 +689,12 @@ Current working directory: ${process.cwd()}`,
           // Stream content as it comes
           if (chunk.choices[0].delta?.content) {
             accumulatedContent += chunk.choices[0].delta.content;
+            if (!firstTokenLogged) {
+              this.logPerf(
+                `timeToFirstTokenMs=${Date.now() - requestStart}`
+              );
+              firstTokenLogged = true;
+            }
 
             // Update token count in real-time including accumulated content and any tool calls
             const currentOutputTokens =
@@ -544,6 +720,20 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Add assistant entry to history
+        if (!accumulatedMessage.tool_calls?.length) {
+          const parsedToolCalls = this.parseToolCallFromContent(
+            accumulatedMessage.content,
+            tools
+          );
+          if (parsedToolCalls) {
+            accumulatedMessage.tool_calls = parsedToolCalls;
+            accumulatedMessage.content = "";
+            this.logDebug("Tool call detected via JSON envelope.");
+          }
+        } else {
+          this.logDebug("Tool call detected via native tool calls.");
+        }
+
         const assistantEntry: ChatEntry = {
           type: "assistant",
           content: accumulatedMessage.content || "Using tools to help you...",
@@ -583,7 +773,11 @@ Current working directory: ${process.cwd()}`,
               return;
             }
 
+            const toolStart = Date.now();
             const result = await this.executeTool(toolCall);
+            this.logPerf(
+              `tool=${toolCall.function.name} durationMs=${Date.now() - toolStart}`
+            );
 
             const toolResultEntry: ChatEntry = {
               type: "tool_result",
@@ -660,6 +854,7 @@ Current working directory: ${process.cwd()}`,
       };
       yield { type: "done" };
     } finally {
+      this.logPerf(`totalResponseMs=${Date.now() - requestStart}`);
       // Clean up abort controller
       this.abortController = null;
     }
