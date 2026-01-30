@@ -18,7 +18,7 @@ interface LiveSearchResult {
   title: string;
   url: string;
   snippet?: string;
-  source: "duckduckgo";
+  source: "duckduckgo" | "scrapegraphai";
   fetched?: boolean;
   content_text?: string;
   content_excerpt?: string;
@@ -35,6 +35,8 @@ const MIN_DELAY_MS = 200;
 const MAX_DELAY_MS = 400;
 const MAX_CONCURRENCY = 3;
 const PYTHON_SCRIPT_RELATIVE_PATH = path.join("tools", "python", "live_search.py");
+const PYTHON_TIMEOUT_MS = 15000;
+const LIVE_SEARCH_MODE = process.env.LIVE_SEARCH_MODE ?? "fast";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,7 +50,10 @@ function randomDelay(): Promise<void> {
 
 function normalizeDuckDuckGoUrl(url: string): string {
   try {
-    const parsed = new URL(url);
+    const normalized = url.startsWith("/")
+      ? `https://duckduckgo.com${url}`
+      : url;
+    const parsed = new URL(normalized);
     if (parsed.hostname.includes("duckduckgo.com")) {
       const target = parsed.searchParams.get("uddg");
       if (target) {
@@ -58,7 +63,7 @@ function normalizeDuckDuckGoUrl(url: string): string {
   } catch {
     return url;
   }
-  return url;
+  return url.startsWith("/") ? `https://duckduckgo.com${url}` : url;
 }
 
 function cleanText(text: string): string {
@@ -147,6 +152,10 @@ async function runPythonLiveSearch(
 
         let stdout = "";
         let stderr = "";
+        const timeout = setTimeout(() => {
+          child.kill("SIGKILL");
+          reject(new Error("Python live_search timed out"));
+        }, PYTHON_TIMEOUT_MS);
 
         child.stdout.on("data", (data) => {
           stdout += data.toString();
@@ -161,6 +170,7 @@ async function runPythonLiveSearch(
         });
 
         child.on("close", (code) => {
+          clearTimeout(timeout);
           if (code !== 0) {
             reject(
               new Error(
@@ -203,83 +213,69 @@ async function searchViaDuckDuckGo(
   const region = options.region ?? "wt-wt";
   const safe = options.safe ?? "moderate";
 
-  const searchUrl = new URL("https://duckduckgo.com/html/");
-  searchUrl.searchParams.set("q", query);
-  searchUrl.searchParams.set("kl", region);
-  searchUrl.searchParams.set("kp", safeSearchParam(safe));
-
-  const response = await axios.get(searchUrl.toString(), {
-    timeout: DEFAULT_TIMEOUT_MS,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept: "text/html",
-    },
-    validateStatus: (status) => status >= 200 && status < 400,
-  });
-
-  const $ = cheerio.load(response.data);
   const results: LiveSearchResult[] = [];
+  const sources = [
+    "https://duckduckgo.com/html/",
+    "https://html.duckduckgo.com/html/",
+    "https://lite.duckduckgo.com/lite/",
+  ];
 
-  $("div.result, div.results > div").each((_, element) => {
+  for (const sourceUrl of sources) {
     if (results.length >= maxResults) {
-      return;
+      break;
     }
 
-    const linkEl = $(element).find("a.result__a, a.result__url, a").first();
-    const title = cleanText(linkEl.text());
-    const rawUrl = linkEl.attr("href") || "";
-    if (!rawUrl) {
-      return;
-    }
+    const searchUrl = new URL(sourceUrl);
+    searchUrl.searchParams.set("q", query);
+    searchUrl.searchParams.set("kl", region);
+    searchUrl.searchParams.set("kp", safeSearchParam(safe));
 
-    const url = normalizeDuckDuckGoUrl(rawUrl);
-    const snippet = cleanText(
-      $(element)
-        .find(".result__snippet, .result__body, .snippet")
-        .first()
-        .text()
-    );
-
-    results.push({
-      title: title || url,
-      url,
-      snippet: snippet || undefined,
-      source: "duckduckgo",
-    });
-  });
-
-  if (results.length === 0) {
-    const fallbackUrl = new URL("https://html.duckduckgo.com/html/");
-    fallbackUrl.searchParams.set("q", query);
-    fallbackUrl.searchParams.set("kl", region);
-    fallbackUrl.searchParams.set("kp", safeSearchParam(safe));
-    const fallbackResponse = await axios.get(fallbackUrl.toString(), {
+    const response = await axios.get(searchUrl.toString(), {
       timeout: DEFAULT_TIMEOUT_MS,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept: "text/html",
       },
+      validateStatus: (status) => status >= 200 && status < 400,
     });
-    const $$ = cheerio.load(fallbackResponse.data);
-    $$("div.result").each((_, element) => {
+
+    const $ = cheerio.load(response.data);
+    const selectors =
+      sourceUrl.includes("lite")
+        ? ["a.result-link"]
+        : ["a.result__a", "a.result__url", "a"];
+
+    selectors.forEach((selector) => {
       if (results.length >= maxResults) {
         return;
       }
-      const linkEl = $$(element).find("a.result__a").first();
-      const title = cleanText(linkEl.text());
-      const rawUrl = linkEl.attr("href") || "";
-      if (!rawUrl) {
-        return;
-      }
-      const url = normalizeDuckDuckGoUrl(rawUrl);
-      const snippet = cleanText($$(element).find(".result__snippet").first().text());
-      results.push({
-        title: title || url,
-        url,
-        snippet: snippet || undefined,
-        source: "duckduckgo",
+
+      $(selector).each((_, element) => {
+        if (results.length >= maxResults) {
+          return;
+        }
+        const linkEl = $(element);
+        const title = cleanText(linkEl.text());
+        const rawUrl = linkEl.attr("href") || "";
+        if (!rawUrl || rawUrl.startsWith("/?q=")) {
+          return;
+        }
+        const url = normalizeDuckDuckGoUrl(rawUrl);
+        const snippet = cleanText(
+          linkEl
+            .closest("tr, div, li")
+            .find(".result__snippet, .result__body, .snippet")
+            .first()
+            .text()
+        );
+
+        results.push({
+          title: title || url,
+          url,
+          snippet: snippet || undefined,
+          source: "duckduckgo",
+        });
       });
     });
   }
@@ -348,11 +344,22 @@ export class LiveSearchTool {
         return { success: false, error: "Query is required for live_search" };
       }
 
-      let payload: LiveSearchResponse;
-      try {
-        payload = await runPythonLiveSearch(options);
-      } catch {
+      let payload: LiveSearchResponse | null = null;
+      if (LIVE_SEARCH_MODE === "robust") {
+        try {
+          payload = await runPythonLiveSearch(options);
+        } catch {
+          payload = await searchViaDuckDuckGo(options);
+        }
+      } else {
         payload = await searchViaDuckDuckGo(options);
+        if (payload.results.length === 0) {
+          try {
+            payload = await runPythonLiveSearch(options);
+          } catch {
+            payload = await searchViaDuckDuckGo(options);
+          }
+        }
       }
 
       return {
