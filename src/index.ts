@@ -105,7 +105,10 @@ function loadApiKey(): string | undefined {
 }
 
 // Load base URL from user settings if not in environment
-function loadBaseURL(): string {
+function loadBaseURL(provider: string): string {
+  if (provider === "ollama") {
+    return process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+  }
   const manager = getSettingsManager();
   return manager.getBaseURL();
 }
@@ -145,6 +148,31 @@ function loadModel(): string | undefined {
   }
 
   return model;
+}
+
+function getProvider(): string {
+  return (process.env.H1DR4_PROVIDER || "grok").toLowerCase();
+}
+
+function resolveMaxToolRounds(
+  provider: string,
+  maxToolRoundsOption?: string
+): number {
+  const optionValue = maxToolRoundsOption
+    ? parseInt(maxToolRoundsOption, 10)
+    : NaN;
+  if (!Number.isNaN(optionValue) && optionValue > 0) {
+    return optionValue;
+  }
+
+  const envValue = process.env.MAX_TOOL_ITERS
+    ? parseInt(process.env.MAX_TOOL_ITERS, 10)
+    : NaN;
+  if (!Number.isNaN(envValue) && envValue > 0) {
+    return envValue;
+  }
+
+  return provider === "ollama" ? 8 : 400;
 }
 
 // Handle commit-and-push command in headless mode
@@ -354,14 +382,17 @@ program
   )
   .version("1.0.1")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
+  .option(
+    "-k, --api-key <key>",
+    "API key (Grok/OpenAI providers; or set GROK_API_KEY env var)"
+  )
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set GROK_BASE_URL env var)"
+    "API base URL (Grok via GROK_BASE_URL or Ollama via OLLAMA_BASE_URL)"
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
+    "AI model to use (e.g., grok-4-latest, huihui_ai/qwen2.5-coder-abliterate:7b) (or set H1DR4_MODEL env var)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -369,8 +400,7 @@ program
   )
   .option(
     "--max-tool-rounds <rounds>",
-    "maximum number of tool execution rounds (default: 400)",
-    "400"
+    "maximum number of tool execution rounds (default: 8 for Ollama, 400 otherwise)"
   )
   .action(async (options) => {
     if (options.directory) {
@@ -386,32 +416,42 @@ program
     }
 
     try {
+      const provider = getProvider();
       // Get API key from options, environment, or user settings
       const apiKey = options.apiKey || loadApiKey();
-      const baseURL = options.baseUrl || loadBaseURL();
+      const baseURL = options.baseUrl || loadBaseURL(provider);
       const model = options.model || loadModel();
-      const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      const maxToolRounds = resolveMaxToolRounds(
+        provider,
+        options.maxToolRounds
+      );
 
-      if (!apiKey) {
+      if (!apiKey && provider !== "ollama") {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
+          "❌ Error: API key required. Set GROK_API_KEY, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
         );
         process.exit(1);
       }
 
       // Save API key and base URL to user settings if provided via command line
-      if (options.apiKey || options.baseUrl) {
+      if (provider !== "ollama" && (options.apiKey || options.baseUrl)) {
         await saveCommandLineSettings(options.apiKey, options.baseUrl);
       }
 
       // Headless mode: process prompt and exit
       if (options.prompt) {
-        await processPromptHeadless(options.prompt, apiKey, baseURL, model, maxToolRounds);
+        await processPromptHeadless(
+          options.prompt,
+          apiKey || "",
+          baseURL,
+          model,
+          maxToolRounds
+        );
         return;
       }
 
       // Interactive mode: launch UI
-      const agent = new H1dr4Agent(apiKey, baseURL, model, maxToolRounds);
+      const agent = new H1dr4Agent(apiKey || "", baseURL, model, maxToolRounds);
       console.log("🤖 Starting H1dr4 CLI Conversational Assistant...\n");
 
       ensureUserSettingsDirectory();
@@ -434,19 +474,21 @@ gitCommand
   .command("commit-and-push")
   .description("Generate AI commit message and push to remote")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
+  .option(
+    "-k, --api-key <key>",
+    "API key (Grok/OpenAI providers; or set GROK_API_KEY env var)"
+  )
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set GROK_BASE_URL env var)"
+    "API base URL (Grok via GROK_BASE_URL or Ollama via OLLAMA_BASE_URL)"
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., gemini-2.5-pro, grok-4-latest) (or set H1DR4_MODEL env var)"
+    "AI model to use (e.g., grok-4-latest, huihui_ai/qwen2.5-coder-abliterate:7b) (or set H1DR4_MODEL env var)"
   )
   .option(
     "--max-tool-rounds <rounds>",
-    "maximum number of tool execution rounds (default: 400)",
-    "400"
+    "maximum number of tool execution rounds (default: 8 for Ollama, 400 otherwise)"
   )
   .action(async (options) => {
     if (options.directory) {
@@ -462,25 +504,34 @@ gitCommand
     }
 
     try {
+      const provider = getProvider();
       // Get API key from options, environment, or user settings
       const apiKey = options.apiKey || loadApiKey();
-      const baseURL = options.baseUrl || loadBaseURL();
+      const baseURL = options.baseUrl || loadBaseURL(provider);
       const model = options.model || loadModel();
-      const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      const maxToolRounds = resolveMaxToolRounds(
+        provider,
+        options.maxToolRounds
+      );
 
-      if (!apiKey) {
+      if (!apiKey && provider !== "ollama") {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
+          "❌ Error: API key required. Set GROK_API_KEY, use --api-key flag, or save to ~/.h1dr4/user-settings.json"
         );
         process.exit(1);
       }
 
       // Save API key and base URL to user settings if provided via command line
-      if (options.apiKey || options.baseUrl) {
+      if (provider !== "ollama" && (options.apiKey || options.baseUrl)) {
         await saveCommandLineSettings(options.apiKey, options.baseUrl);
       }
 
-      await handleCommitAndPushHeadless(apiKey, baseURL, model, maxToolRounds);
+      await handleCommitAndPushHeadless(
+        apiKey || "",
+        baseURL,
+        model,
+        maxToolRounds
+      );
     } catch (error: any) {
       console.error("❌ Error during git commit-and-push:", error.message);
       process.exit(1);

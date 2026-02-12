@@ -326,7 +326,7 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
     function: {
       name: "live_search",
       description:
-        "Search real-time web, news, and X posts using Grok's live search",
+        "Search the live web via DuckDuckGo, optionally fetch pages, and return citations + excerpts",
       parameters: {
         type: "object",
         properties: {
@@ -334,23 +334,62 @@ const BASE_H1DR4_TOOLS: H1dr4Tool[] = [
             type: "string",
             description: "Search query for live data",
           },
-          search_parameters: {
-            type: "object",
-            description:
-              "Optional live search parameters (defaults to auto mode with all sources)",
-            properties: {
-              mode: {
-                type: "string",
-                enum: ["auto", "on", "off"],
-              },
-              from_date: { type: "string" },
-              to_date: { type: "string" },
-              max_search_results: { type: "number" },
-              return_citations: { type: "boolean" },
-            },
+          max_results: {
+            type: "number",
+            description: "Maximum number of results to return (default: 5)",
+          },
+          fetch_pages: {
+            type: "boolean",
+            description: "Whether to fetch result pages for extraction (default: true)",
+          },
+          max_chars_per_page: {
+            type: "number",
+            description: "Maximum characters to keep per fetched page (default: 8000)",
+          },
+          region: {
+            type: "string",
+            description: "DuckDuckGo region code (default: wt-wt)",
+          },
+          safe: {
+            type: "string",
+            enum: ["on", "moderate", "off"],
+            description: "Safe search setting (default: moderate)",
           },
         },
         required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "shannon",
+      description:
+        "Run Shannon's autonomous pentesting CLI (start, logs, query, stop) against a local or remote target",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description:
+              "Shannon CLI command string, e.g. \"start URL=https://app REPO=/path\" or \"logs\"",
+          },
+          working_directory: {
+            type: "string",
+            description:
+              "Optional directory where the Shannon repo is located (defaults to current directory)",
+          },
+          env: {
+            type: "object",
+            description: "Optional environment variables for the Shannon process",
+            additionalProperties: { type: "string" },
+          },
+          timeout_ms: {
+            type: "number",
+            description: "Optional timeout in milliseconds (default 120000)",
+          },
+        },
+        required: ["command"],
       },
     },
   },
